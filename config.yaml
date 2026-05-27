@@ -4,5 +4,5 @@ app:
   version: "0.0.1"
 
 llm:
-  model: "gpt-4o-mini"
+  model: "gpt-4o"
   embedding_model: "text-embedding-3-small"

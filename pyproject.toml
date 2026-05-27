@@ -1,7 +1,7 @@
 [project]
 name = "ai-finance-assistant"
 version = "0.1.0"
-description = "Add your description here"
+description = "Multi-agent personal finance assistant build with LangGraph"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
@@ -18,6 +18,8 @@ dependencies = [
     "yfinance>=1.4.0",
     "tavily-python>=0.7.24",
 ]
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
 
 [dependency-groups]
 dev = [
