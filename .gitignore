@@ -39,3 +39,6 @@ htmlcov/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Sanity check scripts
+scripts/sanity_checks/

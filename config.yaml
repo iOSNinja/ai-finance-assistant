@@ -1,0 +1,8 @@
+# Finnie configuration
+app:
+  name: "AI Finance Assistant"
+  version: "0.0.1"
+
+llm:
+  model: "gpt-4o-mini"
+  embedding_model: "text-embedding-3-small"
