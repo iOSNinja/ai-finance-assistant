@@ -6,3 +6,10 @@ app:
 llm:
   model: "gpt-4o"
   embedding_model: "text-embedding-3-small"
+
+rag:
+  collection_name: "finnie_kb"
+  persist_dir: "./chroma_db"
+  chunk_size: 1000
+  chunk_overlap: 200
+  top_k: 5
