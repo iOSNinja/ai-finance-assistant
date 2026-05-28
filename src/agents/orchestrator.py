@@ -34,7 +34,8 @@ def orchestrator_node(
     query = state["user_query"]
     logger.info("Routing query: %s", query[:60])
 
-    history = state.get("messages", [])[-6:]
+    # Retrieves the last 6 messages from conversation history (for context).
+    history = state.get("messages", [])[-6:] 
 
     decision: OrchestratorDecision = routing_llm.invoke([
         SystemMessage(content=ORCHESTRATOR_PROMPT),
@@ -60,5 +61,6 @@ def orchestrator_node(
         "tax_response": "",
     }
 
+    # Create Send objects for each selected agent
     sends = [Send(f"{agent}_node", clean_state) for agent in decision.agents]
-    return Command(goto=sends, update={"route": decision.agents})
+    return Command(goto=sends, update={"route": decision.agents}) # return a Command that: (1) routes to those agents in parallel, and (2) updates state with which agents were chosen.
