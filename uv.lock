@@ -33,6 +33,7 @@ dependencies = [
     { name = "pyyaml" },
     { name = "streamlit" },
     { name = "tavily-python" },
+    { name = "tiktoken" },
     { name = "yfinance" },
 ]
 
@@ -59,6 +60,7 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0.3" },
     { name = "streamlit", specifier = ">=1.57.0" },
     { name = "tavily-python", specifier = ">=0.7.24" },
+    { name = "tiktoken", specifier = ">=0.7.0" },
     { name = "yfinance", specifier = ">=1.4.0" },
 ]
 

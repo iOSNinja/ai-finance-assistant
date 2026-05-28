@@ -25,6 +25,7 @@ dependencies = [
     "langchain-text-splitters>=1.1.2",
     "beautifulsoup4>=4.14.3",
     "lxml>=6.1.1",
+    "tiktoken>=0.7.0",
 ]
 
 [tool.hatch.build.targets.wheel]
