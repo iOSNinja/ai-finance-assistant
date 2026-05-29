@@ -1,8 +1,9 @@
 """
 Smoke test: calling the Q&A tool directly with a few queries
 """
-
+print("Importing tool... (Chroma will load)")
 from src.agents.qa.tool import finance_qa_search
+print("Import done. Running queries...\n")
 
 QUERIES = [
     ("What is an ETF?", None),
