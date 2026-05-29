@@ -19,7 +19,10 @@ class OrchestratorDecision(BaseModel):
     """The orchestrator's routing decision."""
 
     reasoning: str = Field(description="Brief explanation of why these agents were chosen")
-    agents: list[Literal["qa_agent", "portfolio_agent", "market_agent", "goal_agent", "news_agent", "tax_agent"]] = Field(
+    # agents: list[Literal["qa_agent", "portfolio_agent", "market_agent", "goal_agent", "news_agent", "tax_agent"]] = Field(
+    #     description="List of agents to dispatch. Always at least one.",
+    #     min_length=1,
+    agents: list[Literal["qa_agent"]] = Field(
         description="List of agents to dispatch. Always at least one.",
         min_length=1,
     )
