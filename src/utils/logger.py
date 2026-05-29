@@ -19,4 +19,5 @@ def setup_logger(name: str, level: int = logging.INFO) -> logging.Logger:
         logger.addHandler(handler)
 
     logger.setLevel(level)
+    logger.propagate = False #don't forward records to parent loggers, to prevent printing logs twice
     return logger
