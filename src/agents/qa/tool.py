@@ -91,3 +91,6 @@ def finance_qa_search(
 
     logger.info("KB search: returned %d chunks", len(output))
     return output
+
+# Convenient list for binding to the LLM / building ToolNodes
+qa_tools_list = [finance_qa_search]
