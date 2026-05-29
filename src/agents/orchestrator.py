@@ -31,7 +31,8 @@ routing_llm = llm.with_structured_output(OrchestratorDecision)
 
 def orchestrator_node(
     state: FinnieState,
-) -> Command[Literal["qa_agent_node", "portfolio_agent_node", "market_agent_node", "goal_agent_node", "news_agent_node", "tax_agent_node"]]:
+) -> Command[Literal["qa_agent_node"]]:
+# -> Command[Literal["qa_agent_node", "portfolio_agent_node", "market_agent_node", "goal_agent_node", "news_agent_node", "tax_agent_node"]]:
     """Classify the query and fan out to one or more agents."""
 
     query = state["user_query"]
