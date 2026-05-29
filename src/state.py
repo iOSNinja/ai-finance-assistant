@@ -14,6 +14,7 @@ class FinnieState(TypedDict):
 
     # routing
     route: list[str] # e.g. ["qa_agent", "portfolio_agent"]
+    is_finance_query: bool # to be set by orchestrator & read by synthesizer
 
     # Per-agent message buffers (isolated via add_messages reducer)
     qa_messages: Annotated[list[AnyMessage], add_messages]

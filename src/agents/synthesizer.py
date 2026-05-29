@@ -35,6 +35,13 @@ _AGENT_FIELDS: dict[str, str] = {
     # "tax_response":       "Tax Education",
 }
 
+def _maybe_append_disclaimer(text: str, state: FinnieState) -> str:
+    """Append the educational disclaimer ONLY for finance queries.
+    Defaults to True if the flag is missing for any reason."""
+    if state.get("is_finance_query", True):
+        return text + DISCLAIMER
+    return text
+
 def synthesizer_node(state: FinnieState) -> dict:
     """Merge agent outputs into a single response, then append the disclaimer."""
     # Collect all non-empty agent responses first
@@ -52,7 +59,7 @@ def synthesizer_node(state: FinnieState) -> dict:
             "I wasn't able to produce a useful answer for that query. "
             "Could you rephrase or ask something more specific?"
         )
-        final_answer = fallback + DISCLAIMER
+        final_answer = _maybe_append_disclaimer(fallback, state)
         return {
             "final_answer": final_answer,
             "messages": [AIMessage(content=final_answer)],
@@ -61,7 +68,7 @@ def synthesizer_node(state: FinnieState) -> dict:
     # Single agent contribution
     if len(contributions) == 1:
         _, single = contributions[0]
-        final_answer = single + DISCLAIMER
+        final_answer = _maybe_append_disclaimer(single, state)
         logger.info("Single-agent passthrough | len=%d", len(final_answer))
         return {
             "final_answer": final_answer,
@@ -88,7 +95,7 @@ def synthesizer_node(state: FinnieState) -> dict:
         # Fallback to a simple concatenation if the LLM can't merge
         merged = "\n\n".join(text for _, text in contributions)
 
-    final_answer = merged + DISCLAIMER
+    final_answer = _maybe_append_disclaimer(merged, state)
     logger.info("Multi-agent merge complete | len=%d", len(final_answer))
 
     return {

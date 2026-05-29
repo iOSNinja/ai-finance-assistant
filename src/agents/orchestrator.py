@@ -26,6 +26,13 @@ class OrchestratorDecision(BaseModel):
         description="List of agents to dispatch. Always at least one.",
         min_length=1,
     )
+    is_finance_query: bool = Field(
+        description=(
+            "True if the query is about finance, investing, taxes, or money "
+            "and warrants the educational disclaimer. False for off-topic "
+            "redirects, greetings, or queries unrelated to finance."
+        ),
+    )
 
 routing_llm = llm.with_structured_output(OrchestratorDecision)
 
@@ -67,4 +74,7 @@ def orchestrator_node(
 
     # Create Send objects for each selected agent
     sends = [Send(f"{agent}_node", clean_state) for agent in decision.agents]
-    return Command(goto=sends, update={"route": decision.agents}) # return a Command that: (1) routes to those agents in parallel, and (2) updates state with which agents were chosen.
+    return Command(goto=sends, update={
+        "route": decision.agents,
+        "is_finance_query": decision.is_finance_query,
+    }) # return a Command that: (1) routes to those agents in parallel, and (2) updates state with which agents were chosen.
