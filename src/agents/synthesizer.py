@@ -1,9 +1,11 @@
 """
-src/agents/synthesizer.py - Merges responses from one or more agents
-into a single coherent reply to the user.
+src/agents/synthesizer.py — Merges responses from one or more agents
+into a single coherent reply, with the standard compliance disclaimer
+appended deterministically.
 """
 
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+
 from src.utils.logger import setup_logger
 from src.state import FinnieState
 from src.core.config import llm
@@ -11,32 +13,86 @@ from src.agents.prompts import SYNTHESIZER_PROMPT
 
 logger = setup_logger("finnie.agents.synthesizer")
 
+# ──────────────────────────────────────────────────────────────────────────────
+# Compliance disclaimer — appended to every response. Required by the
+# regulatory framing in the project brief (distinguish education from advice).
+# ──────────────────────────────────────────────────────────────────────────────
+DISCLAIMER = (
+    "\n\n---\n"
+    "_This is educational content, not personalized financial advice. "
+    "For decisions specific to your situation, consult a qualified financial "
+    "advisor or CPA._"
+)
+
+# Map state-field -> agent name
+_AGENT_FIELDS: dict[str, str] = {
+    "qa_response": "Finance Q&A",
+    # for later purpose, enable below as needed:
+    # "portfolio_response": "Portfolio Analysis",
+    # "market_response":    "Market Analysis",
+    # "goal_response":      "Goal Planning",
+    # "news_response":      "News Synthesizer",
+    # "tax_response":       "Tax Education",
+}
+
 def synthesizer_node(state: FinnieState) -> dict:
-    """Combine agent outputs into a final, user-friendly answer."""
-    logger.info("Combining agent responses...")
+    """Merge agent outputs into a single response, then append the disclaimer."""
+    # Collect all non-empty agent responses first
+    contributions: list[tuple[str, str]] = []
+    for field, label in _AGENT_FIELDS.items():
+        value = state.get(field, "")
+        if value:
+            contributions.append((label, value))
 
-    qa_agent_response = state.get("qa_response", "")
-    
-    combined = ""
-    if qa_agent_response:
-        combined += f"[Finance Q&A Agent]\n{qa_agent_response}\n\n"
+    logger.info("Synthesizing %d agent contribution(s)", len(contributions))
 
-    if not combined:
-        combined = "Could not find relevant information. Please try rephrasing your query."
+    # No agent produced anything — return fallback
+    if not contributions:
+        fallback = (
+            "I wasn't able to produce a useful answer for that query. "
+            "Could you rephrase or ask something more specific?"
+        )
+        final_answer = fallback + DISCLAIMER
+        return {
+            "final_answer": final_answer,
+            "messages": [AIMessage(content=final_answer)],
+        }
 
-    final = llm.invoke(
-        [
+    # Single agent contribution
+    if len(contributions) == 1:
+        _, single = contributions[0]
+        final_answer = single + DISCLAIMER
+        logger.info("Single-agent passthrough | len=%d", len(final_answer))
+        return {
+            "final_answer": final_answer,
+            "messages": [AIMessage(content=final_answer)],
+        }
+
+    # Multiple agents — LLM to merge them coherently
+    agent_block = "\n\n".join(f"[{label}]\n{text}" for label, text in contributions)
+    user_query = state.get("user_query", "")
+
+    try:
+        response = llm.invoke([
             SystemMessage(content=SYNTHESIZER_PROMPT),
             HumanMessage(
-                content=f"User query: {state["user_query"]}\n\nAgent outputs:\n{combined}"
+                content=(
+                    f"User query:\n{user_query}\n\n"
+                    f"Agent outputs:\n{agent_block}"
+                )
             ),
-        ]
-    )
+        ])
+        merged = response.content or ""
+    except Exception as e:
+        logger.error("Synthesizer LLM call failed: %s: %s", type(e).__name__, e)
+        # Fallback to a simple concatenation if the LLM can't merge
+        merged = "\n\n".join(text for _, text in contributions)
 
-    logger.info("Final answer ready (%d chars)", len(final.content))
+    final_answer = merged + DISCLAIMER
+    logger.info("Multi-agent merge complete | len=%d", len(final_answer))
 
     return {
-        "final_answer": final.content,
-        "messages": [final],
+        "final_answer": final_answer,
+        "messages": [AIMessage(content=final_answer)],
     }
     
