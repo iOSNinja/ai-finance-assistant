@@ -37,10 +37,9 @@ def render_hero() -> None:
         </div>
         <h1>🦊 Finnie</h1>
         <p class="hero-subtitle">
-          Your <strong>AI-powered</strong> finance tutor. Smart answers in plain
-          English — grounded in curated sources, never invented. Ask anything
-          from "what's an ETF?" to "how does compound interest work?"
-        </p>
+            Your <strong>AI-powered</strong> finance tutor. Plain-English answers
+            grounded in real sources — never invented.
+            </p>
         """,
         unsafe_allow_html=True,
     )

@@ -19,7 +19,6 @@ from langchain_core.messages import (
     SystemMessage,
     HumanMessage,
     AIMessage,
-    ToolMessage,
     AnyMessage,
 )
 from langgraph.prebuilt import ToolNode
@@ -36,7 +35,7 @@ logger = setup_logger("finnie.agents.qa.agent")
 # 1. create a singleton llm at import time and bind it with tools
 qa_llm = llm.bind_tools(qa_tools_list)
 
-# 2. create tools node -> qa_tools_node using LangGraph's prebuilt ToolNode
+# 2. create qa_tools_node using LangGraph's prebuilt ToolNode
 qa_tools_node = ToolNode(
     tools=qa_tools_list,
     messages_key="qa_messages",
@@ -63,7 +62,7 @@ def qa_agent_node(state: FinnieState) -> dict:
         # First call (qa_messages empty): seed with system prompt + user query
         messages: list[AnyMessage] = [
             SystemMessage(content=QA_AGENT_PROMPT),
-            HumanMessage(content=state["user_query"],)
+            HumanMessage(content=state["user_query"]),
         ]
     else:
         # Subsequent calls: preserve system prompt, replay accumulated history
@@ -84,7 +83,7 @@ def qa_agent_node(state: FinnieState) -> dict:
         )
 
         fallback = (
-            "QA agent wasn't able to find a clear anwser in the knowledge base."
+            "I wasn't able to find a clear anwser in the knowledge base."
             "Please try rephrasing your question or ask about a different topic."
         )
 

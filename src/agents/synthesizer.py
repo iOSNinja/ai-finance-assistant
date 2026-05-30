@@ -32,7 +32,7 @@ _AGENT_FIELDS: dict[str, str] = {
     # "market_response":    "Market Analysis",
     # "goal_response":      "Goal Planning",
     # "news_response":      "News Synthesizer",
-    # "tax_response":       "Tax Education",
+    "tax_response":       "Tax Education",
 }
 
 def _maybe_append_disclaimer(text: str, state: FinnieState) -> str:

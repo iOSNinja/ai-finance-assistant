@@ -286,7 +286,7 @@ section[data-testid="stSidebar"] h3 {
   font-size: 1.15rem;
   color: var(--text-secondary);
   font-weight: 400;
-  max-width: 600px;
+  max-width: 780px;
   margin-bottom: 1.5rem;
 }
 

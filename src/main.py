@@ -42,7 +42,9 @@ class FinnieAIFinanceAssistant:
         initial_state = {
             "user_query": query,
             "qa_messages": [],
+            "tax_messages": [],
             "qa_response": "",
+            "tax_response": "",
             "final_answer": "",
             "route": [],
         }
