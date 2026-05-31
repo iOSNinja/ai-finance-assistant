@@ -28,7 +28,7 @@ DISCLAIMER = (
 _AGENT_FIELDS: dict[str, str] = {
     "qa_response": "Finance Q&A",
     # for later purpose, enable below as needed:
-    # "portfolio_response": "Portfolio Analysis",
+    "portfolio_response": "Portfolio Analysis",
     # "market_response":    "Market Analysis",
     "goal_response":      "Goal Planning",
     # "news_response":      "News Synthesizer",
