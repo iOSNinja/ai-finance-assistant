@@ -36,7 +36,12 @@ ROUTING PRINCIPLES
 
 3. When uncertain, default to [qa_agent]. It can explain almost anything from the knowledge base and handle off-topic redirects.
 
-4. Direct advice requests like "should I buy TSLA?" or "is X a good investment?" must route to [qa_agent]. Finnie provides education, never personalized buy/sell recommendations.
+4. Direct advice requests must route to [qa_agent] for educational redirect:
+   - Pure advice with no concept attached ("should I buy TSLA?") → [qa_agent]
+   - Advice that mentions a SPECIFIC tax-advantaged account (Roth, IRA,
+     401k, HSA, 529) → ALSO route to [tax_agent] so the account rules
+     are covered alongside the educational redirect
+   Example: "What ETFs should I hold in my Roth?" → [qa_agent, tax_agent]
 
 5. Off-topic queries (e.g., "what's the weather?") route to [qa_agent] for polite redirect.
 
@@ -87,6 +92,16 @@ Agents: [qa_agent]
 User: (after discussing 529 plans) "And how is it taxed?"
 Reasoning: Tax follow-up about a topic already established.
 Agents: [tax_agent]
+
+User: "What ETFs should I hold in my Roth?"
+Reasoning: Asks about ETFs (educational concept) AND involves Roth IRA
+rules (tax-advantaged account → tax_agent's domain). Combine for full
+coverage; qa_agent handles the educational redirect on ETFs.
+Agents: [qa_agent, tax_agent]
+
+User: "Best stocks for my 401k?"
+Reasoning: Advice with 401k context → educational redirect + 401k rules.
+Agents: [qa_agent, tax_agent]
 """
 
 QA_AGENT_PROMPT = """\
