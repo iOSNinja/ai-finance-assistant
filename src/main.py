@@ -41,12 +41,18 @@ class FinnieAIFinanceAssistant:
         # Reset per-turn buffers so previous-turn state doesn't leak in
         initial_state = {
             "user_query": query,
+            "route": [],
+            "is_finance_query": True,
+            # Reset ALL per-agent buffers + responses each turn
             "qa_messages": [],
             "tax_messages": [],
+            "goal_messages": [],
+            "portfolio_messages": [],
             "qa_response": "",
             "tax_response": "",
+            "goal_response": "",
+            "portfolio_response": "",
             "final_answer": "",
-            "route": [],
         }
         try:
             final = self.graph.invoke(initial_state, config=config)
