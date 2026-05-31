@@ -164,8 +164,6 @@ p, li, span { color: var(--text-secondary); }
 /* Input fields */
 .stTextInput input,
 .stTextArea textarea,
-.stChatInput textarea,
-.stChatInput input,
 .stNumberInput input,
 .stSelectbox > div > div {
   background: var(--bg-secondary) !important;
@@ -175,12 +173,59 @@ p, li, span { color: var(--text-secondary); }
   font-family: 'Inter', sans-serif !important;
 }
 
-.stTextInput input:focus,
-.stChatInput textarea:focus,
-.stNumberInput input:focus {
+/* Chat input outer container */
+[data-testid="stChatInput"] {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 14px !important;
+  padding: 8px !important;
+  box-shadow: 0 0 0 1px rgba(16, 185, 129, 0.04) !important;
+}
+
+/* Chat input inner textarea/input */
+[data-testid="stChatInput"] textarea,
+[data-testid="stChatInput"] input {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+  font-family: 'Inter', sans-serif !important;
+  caret-color: var(--accent-emerald) !important;
+}
+
+/* Chat input placeholder text */
+[data-testid="stChatInput"] textarea::placeholder,
+[data-testid="stChatInput"] input::placeholder,
+.stTextInput input::placeholder,
+.stTextArea textarea::placeholder {
+  color: #9ca3af !important;
+  opacity: 1 !important;
+}
+
+/* Chat input focus state */
+[data-testid="stChatInput"]:focus-within {
   border-color: var(--accent-emerald) !important;
-  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.12) !important;
-  outline: none !important;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.14) !important;
+}
+
+/* Remove unwanted white background from chat input internal wrappers */
+[data-testid="stChatInput"] > div,
+[data-testid="stChatInput"] div,
+[data-testid="stChatInput"] form {
+  background: transparent !important;
+}
+
+/* Send button */
+[data-testid="stChatInput"] button {
+  background: var(--bg-tertiary) !important;
+  color: var(--text-primary) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 10px !important;
+}
+
+[data-testid="stChatInput"] button:hover {
+  background: rgba(16, 185, 129, 0.14) !important;
+  border-color: var(--accent-emerald) !important;
 }
 
 /* Chat messages */
