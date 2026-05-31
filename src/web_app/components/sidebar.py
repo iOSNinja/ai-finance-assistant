@@ -43,11 +43,11 @@ def render_sidebar() -> None:
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: #a1a1aa; font-size: 0.85rem;">Portfolio Analysis</span>
-                <span class="feature-badge badge-coming-soon">Soon</span>
+                <span class="feature-badge badge-live">Live</span>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: #a1a1aa; font-size: 0.85rem;">Goal Planning</span>
-                <span class="feature-badge badge-coming-soon">Soon</span>
+                <span class="feature-badge badge-live">Live</span>
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: #a1a1aa; font-size: 0.85rem;">News Synthesizer</span>
@@ -55,7 +55,7 @@ def render_sidebar() -> None:
               </div>
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="color: #a1a1aa; font-size: 0.85rem;">Tax Education</span>
-                <span class="feature-badge badge-coming-soon">Soon</span>
+                <span class="feature-badge badge-live">Live</span>
               </div>
             </div>
             """,

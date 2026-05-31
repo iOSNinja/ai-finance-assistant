@@ -1,8 +1,8 @@
-"""Library tab: direct browse/search of the Chroma KB. No LLM."""
+"""Library tab: direct, LLM-free browse/search of the Chroma KB."""
 
 import streamlit as st
 
-from src.agents.qa.tool import finance_qa_search
+from src.rag.retriever import kb_search
 
 CATEGORIES = [
     "All",
@@ -21,12 +21,6 @@ POPULAR_TOPICS = [
     ("🔁", "Dollar-cost averaging"),
     ("🏦", "Roth IRA vs Traditional"),
 ]
-
-
-def _run_search(query: str, category: str | None, top_k: int = 5) -> list[dict]:
-    return finance_qa_search.invoke({
-        "query": query, "category": category, "top_k": top_k,
-    })
 
 
 def _render_results(results: list[dict], query: str) -> None:
@@ -52,19 +46,15 @@ def render() -> None:
     )
     st.caption(
         "Browse Finnie's curated educational content directly. "
-        "Pure semantic retrieval — no LLM in the loop."
+        "Pure semantic retrieval — no LLM in the loop. Searches across all categories."
     )
 
     st.markdown("")
 
-    # ── FIX for kb_query bug ──────────────────────────────────────────────
-    # We use a "pending value" pattern: the widget reads its initial value
-    # from `_kb_pending_query`, and popular-topic buttons set THAT (never
-    # `kb_query` directly), then trigger a rerun. The widget owns its key.
+    # Pending-value pattern: popular-topic buttons set this, widget reads it on rerun
     if "_kb_pending_query" not in st.session_state:
         st.session_state._kb_pending_query = ""
 
-    # Search controls
     col_q, col_cat = st.columns([3, 1])
     with col_q:
         query = st.text_input(
@@ -79,7 +69,6 @@ def render() -> None:
             "Category", CATEGORIES, label_visibility="collapsed"
         )
 
-    # Popular-topic chips
     st.markdown(
         '<div class="section-eyebrow" style="margin-top:1rem;">Popular topics</div>',
         unsafe_allow_html=True,
@@ -97,10 +86,6 @@ def render() -> None:
 
     category_filter = category_choice if category_choice != "All" else None
     with st.spinner("Searching..."):
-        try:
-            results = _run_search(query, category_filter)
-        except Exception as e:
-            st.error(f"Search failed: {type(e).__name__}: {e}")
-            return
+        results = kb_search(query, category_filter, top_k=5)
 
     _render_results(results, query)
