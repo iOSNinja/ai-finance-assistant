@@ -21,6 +21,7 @@ from src.agents.orchestrator import orchestrator_node
 from src.agents.synthesizer import synthesizer_node
 from src.agents.qa.agent import qa_agent_node, qa_tools_node, should_continue_qa
 from src.agents.tax.agent import tax_agent_node, tax_tools_node, should_continue_tax
+from src.agents.goal.agent import goal_agent_node, goal_tools_node, should_continue_goal
 
 logger = setup_logger("finnie.workflow.graph")
 
@@ -35,6 +36,8 @@ def build_graph():
     builder.add_node("qa_tools_node", qa_tools_node)
     builder.add_node("tax_agent_node", tax_agent_node)
     builder.add_node("tax_tools_node", tax_tools_node)
+    builder.add_node("goal_agent_node", goal_agent_node)
+    builder.add_node("goal_tools_node", goal_tools_node)
     builder.add_node("synthesizer_node", synthesizer_node)
 
     # --- Edges ----------------------------------------------------
@@ -69,6 +72,18 @@ def build_graph():
     # wire tools-node back to agent node
     builder.add_edge("tax_tools_node", "tax_agent_node")
 
+    # Goal Planning agent
+    builder.add_conditional_edges(
+        "goal_agent_node",
+        should_continue_goal,
+        {
+            "goal_tools_node":  "goal_tools_node",
+            "synthesizer_node": "synthesizer_node",
+        },
+    )
+    # wire tools-node back to agent node
+    builder.add_edge("goal_tools_node", "goal_agent_node")
+
     # TODO - add other specialist agent nodes/tool nodes later
 
     # Synthesizer -> END (fixed)
@@ -78,6 +93,6 @@ def build_graph():
     memory = MemorySaver()
     graph = builder.compile(checkpointer=memory)
 
-    logger.info("Finnie graph compiled with %d nodes", 6)
+    logger.info("Finnie graph compiled with %d nodes", 8)
     return graph
 

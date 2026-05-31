@@ -30,7 +30,7 @@ _AGENT_FIELDS: dict[str, str] = {
     # for later purpose, enable below as needed:
     # "portfolio_response": "Portfolio Analysis",
     # "market_response":    "Market Analysis",
-    # "goal_response":      "Goal Planning",
+    "goal_response":      "Goal Planning",
     # "news_response":      "News Synthesizer",
     "tax_response":       "Tax Education",
 }
