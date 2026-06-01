@@ -8,11 +8,6 @@ Three tools:
 
 Module-level in-memory cache with TTL to respect yfinance's implicit
 rate limits and to keep the UI snappy. Cache TTLs come from config.yaml.
-
-Production hardening notes (future):
-  - Add Alpha Vantage as a fallback when yfinance fails
-  - Add stale-cache fallback when network is fully down
-  - Persistent cache (redis/sqlite) if running multi-process
 """
 
 import yfinance as yf
@@ -22,7 +17,7 @@ from langchain_community.tools import tool
 from src.utils.logger import setup_logger
 from src.core.config import MARKET_CONFIG
 
-logger = setup_logger("finnie.agents,market.tool")
+logger = setup_logger("finnie.agents.market.tool")
 
 # Define a simple dict as Local Cache: {key, (value, expires_at)}
 _cache: dict[str, tuple[dict, float]] = {}
@@ -131,3 +126,92 @@ def get_stock_quote(ticker: str) -> dict:
         On failure: {"error": "..."}
     """
     return _fetch_quote(ticker)
+
+@tool
+def get_historical_prices(ticker: str, period: str = "1mo") -> dict:
+    """Get historical closing prices for a ticker.
+
+    Args:
+        ticker: Stock or ETF symbol (e.g., "AAPL").
+        period: One of "1d", "5d", "1mo", "3mo", "6mo", "1y", "2y",
+                "5y", "10y", "ytd", "max". Default "1mo".
+
+    Returns:
+        On success: dict with keys
+          - ticker, period, start_date, end_date, data_points,
+            prices (list of {date, close}), cache_hit
+        On failure: {"error": "..."}
+    """
+    ticker = ticker.upper().strip()
+
+    if period not in VALID_PERIODS:
+        return {"error": f"period must be one of {sorted(VALID_PERIODS)} (got {period!r})"}
+
+    cache_key = f"hist:{ticker}:{period}"
+    if (cached := _cache_get(cache_key)) is not None:
+        logger.info("history cache hit: %s %s", ticker, period)
+        return {**cached, "cache_hit": True}
+
+    logger.info("history fetch: %s %s", ticker, period)
+    try:
+        t = yf.Ticker(ticker)
+        df = t.history(period=period)
+        if df.empty:
+            return {"error": f"No historical data for {ticker!r}."}
+
+        prices = [
+            {"date": idx.strftime("%Y-%m-%d"), "close": round(float(row["Close"]), 2)}
+            for idx, row in df.iterrows()
+            # iterrows() — iterates over DataFrame rows. 
+            # Each iteration yields (index, row) where: 
+                # idx is the row's index (a pandas Timestamp object)
+                # row is a Series with the column values
+        ]
+
+        result = {
+            "ticker":      ticker,
+            "period":      period,
+            "start_date":  prices[0]["date"],
+            "end_date":    prices[-1]["date"],
+            "data_points": len(prices),
+            "prices":      prices,
+            "cache_hit":   False,
+        }
+        _cache_set(cache_key, result, CACHE_TTL_HISTORY)
+        return result
+
+    except Exception as e:
+        logger.error("history fetch failed for %s %s: %s: %s",
+                     ticker, period, type(e).__name__, e)
+        return {"error": f"Failed to fetch history for {ticker!r}: {type(e).__name__}"}
+    
+
+@tool
+def get_index_overview() -> dict:
+    """Get a snapshot of the major US market indices: S&P 500, Dow, NASDAQ, VIX.
+
+    Takes no arguments. Use for "how's the market doing?" queries.
+
+    Returns:
+        On success: dict with keys
+          - indices: dict mapping index_name → quote_dict (same shape as
+            get_stock_quote return value)
+          - cache_hit: bool
+    """
+    cache_key = "indices:overview"
+    if (cached := _cache_get(cache_key)) is not None:
+        logger.info("indices cache hit")
+        return {**cached, "cache_hit": True}
+
+    logger.info("indices fetch")
+    indices: dict[str, dict] = {}
+    for name, symbol in INDEX_SYMBOLS.items():
+        indices[name] = _fetch_quote(symbol)
+
+    result = {"indices": indices, "cache_hit": False}
+    _cache_set(cache_key, result, CACHE_TTL_QUOTE)
+
+    return result
+
+
+market_tools_list = [get_stock_quote, get_historical_prices, get_index_overview]

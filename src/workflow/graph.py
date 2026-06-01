@@ -27,6 +27,11 @@ from src.agents.portfolio.agent import (
     portfolio_tools_node,
     should_continue_portfolio,
 )
+from src.agents.market.agent import (
+    market_agent_node,
+    market_tools_node,
+    should_continue_market,
+)
 
 logger = setup_logger("finnie.workflow.graph")
 
@@ -45,6 +50,8 @@ def build_graph():
     builder.add_node("goal_tools_node", goal_tools_node)
     builder.add_node("portfolio_agent_node", portfolio_agent_node)
     builder.add_node("portfolio_tools_node", portfolio_tools_node)
+    builder.add_node("market_agent_node", market_agent_node)
+    builder.add_node("market_tools_node", market_tools_node)
     builder.add_node("synthesizer_node", synthesizer_node)
 
     # --- Edges ----------------------------------------------------
@@ -103,6 +110,18 @@ def build_graph():
     # wire tools-node back to agent node
     builder.add_edge("portfolio_tools_node", "portfolio_agent_node")
 
+    # Maket Analysis agent
+    builder.add_conditional_edges(
+        "market_agent_node",
+        should_continue_market,
+        {
+            "market_tools_node": "market_tools_node",
+            "synthesizer_node": "synthesizer_node",
+        },   
+    )
+    # wire tools-node back to agent node
+    builder.add_edge("market_tools_node", "market_agent_node")
+
     # TODO - add other specialist agent nodes/tool nodes later
 
     # Synthesizer -> END (fixed)
@@ -112,6 +131,6 @@ def build_graph():
     memory = MemorySaver()
     graph = builder.compile(checkpointer=memory)
 
-    logger.info("Finnie graph compiled with %d nodes", 10)
+    logger.info("Finnie graph compiled with %d nodes", 12)
     return graph
 
