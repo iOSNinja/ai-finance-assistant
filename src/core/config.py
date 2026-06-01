@@ -37,6 +37,7 @@ if not OPENAI_API_KEY:
 MODEL = _get("OPENAI_MODEL", ("llm", "model"))
 EMBEDDING_MODEL = _get("OPENAI_EMBEDDING_MODEL", ("llm", "embedding_model"))
 RAG_CONFIG = _config.get("rag", {})
+MARKET_CONFIG = _config.get("market", {})
 
 # Initializations
 openai_client = OpenAI(api_key=OPENAI_API_KEY)

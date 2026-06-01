@@ -48,10 +48,12 @@ class FinnieAIFinanceAssistant:
             "tax_messages": [],
             "goal_messages": [],
             "portfolio_messages": [],
+            "market_messages": [],
             "qa_response": "",
             "tax_response": "",
             "goal_response": "",
             "portfolio_response": "",
+            "market_response": "",
             "final_answer": "",
         }
         try:
