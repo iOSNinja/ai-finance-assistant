@@ -44,7 +44,7 @@ def _cache_get(key: str) -> dict | None:
     
     value, expires_at = entry
     if time.time() > expires_at:
-        del _cache(key)
+        del _cache[key]
         return None
     
     return value
@@ -61,11 +61,11 @@ def _fetch_quote(ticker: str) -> dict:
     Returns either a quote dict OR {"error": "..."} if data is unavailable.
     Centralizes the yfinance interaction + caching so we don't duplicate logic.
     """
-    ticker = ticker.upper().strip # cleaning
+    ticker = ticker.upper().strip() # cleaning
     cache_key = f"quote:{ticker}" # to differentiate from historical ticker data
 
     # Check in local cache. If hit, return along with cache_hit flag
-    if (cached := _cache_get(cache_key) is not None): # using Walrus operator :=
+    if (cached := _cache_get(cache_key)) is not None: # using Walrus operator :=
         logger.info("quote cache hit: %s", ticker)
         return {**cached, "cache_hit": True}
 
@@ -102,7 +102,7 @@ def _fetch_quote(ticker: str) -> dict:
             "cache_hit":           False,
         }
 
-        _cache_set(cache_key, (result, CACHE_TTL_QUOTE))
+        _cache_set(cache_key, result, CACHE_TTL_QUOTE)
         return result
 
     except Exception as e:

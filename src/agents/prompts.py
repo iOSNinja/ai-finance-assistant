@@ -126,6 +126,22 @@ Agents: [portfolio_agent]
 User: "I have $50K mostly in AAPL — what's my allocation and what are the tax implications if I rebalance?"
 Reasoning: Portfolio analysis (allocation) + tax rules for rebalancing.
 Agents: [portfolio_agent, tax_agent]
+
+User: "What's AAPL trading at?"
+Reasoning: Single live-price lookup.
+Agents: [market_agent]
+
+User: "How is the S&P 500 doing today?"
+Reasoning: Major index overview.
+Agents: [market_agent]
+
+User: "Show me NVDA's price history for the last year."
+Reasoning: Historical price data.
+Agents: [market_agent]
+
+User: "AAPL is up 20% — should I rebalance my $50K AAPL + $10K BND portfolio?"
+Reasoning: Live price (market) + holdings analysis (portfolio) + concept (qa).
+Agents: [qa_agent, market_agent, portfolio_agent]
 """
 
 QA_AGENT_PROMPT = """\
