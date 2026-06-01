@@ -17,3 +17,7 @@ rag:
 market:
   cache_ttl_quote_seconds: 1800 # 30 min for quotes
   cache_ttl_history_seconds: 3600 # 60 min for historicals
+
+new:
+  cache_ttl_seconds: 3600 # 1 hr
+  max_results: 5
