@@ -30,6 +30,16 @@ _cache: dict[str, tuple[dict, float]] = {}
 CACHE_TTL_QUOTE = MARKET_CONFIG.get("cache_ttl_quote", 1800) # default to 30 mins
 CACHE_TTL_HISTORY = MARKET_CONFIG.get("cache_ttl_history", 3600) # default to 60 mins
 
+VALID_PERIODS = {"1d", "5d", "10d", "1mo", "3mo", "6mo", "1y", "2y", "5y", "10y", "ytd", "max"}
+
+# MAJOR INDICES
+INDEX_SYMBOLS: dict[str, str] = {
+    "S&P 500":   "^GSPC",
+    "Dow Jones": "^DJI",
+    "NASDAQ":    "^IXIC",
+    "VIX":       "^VIX",
+}
+
 def _cache_get(key: str) -> dict | None:
     """Return cached value if present and is not expired, else None"""
     entry = _cache.get(key)
@@ -48,3 +58,76 @@ def _cache_set(key: str, value: dict, ttl_seconds: float) -> None:
     """store value with TTL as a tuple for the key passed in."""
     _cache[key] = value, time.time() + ttl_seconds
 
+
+# private method
+def _fetch_quote(ticker: str) -> dict:
+    """Internal helper methid used by get_stock_quote AND get_index_overview.
+
+    Returns either a quote dict OR {"error": "..."} if data is unavailable.
+    Centralizes the yfinance interaction + caching so we don't duplicate logic.
+    """
+    ticker = ticker.upper().strip # cleaning
+    cache_key = f"quote:{ticker}" # to differentiate from historical ticker data
+
+    # Check in local cache. If hit, return along with cache_hit flag
+    if (cached := _cache_get(cache_key) is not None): # using Walrus operator :=
+        logger.info("quote cache hit: %s", ticker)
+        return {**cached, "cache_hit": True}
+
+    # If not in local cache, fetch using yfinance API
+    logger.info("quote not in local cache, fetching...: %s", ticker)
+    try:
+        t = yf.Ticker(ticker)
+        # We use .fast_info because we only need the basics. 
+        # This is a 10x latency win with no loss for our use case. 
+        # .info to be used only when we need company description, sector, employee count, etc. — fields that fast_info doesn't expose.
+        # And .info makes multiple HTTP calls to gather all data points.
+        fast = t.fast_info
+
+        current = fast.last_price
+        previous = fast.previous_close
+
+        if current is None or previous is None:
+            return {"error": f"No price data for {ticker!r}. Check the symbol."}
+        
+        change = float(current) - float(previous)
+        change_pct = (change / float(previous)) * 100 if previous else 0.0
+
+        result = {
+            "ticker":              ticker,
+            "current_price":       round(float(current), 2),
+            "prev_close":          round(float(previous), 2),
+            "change":              round(change, 2),
+            "change_pct":          round(change_pct, 2),
+            "day_high":            round(float(fast.day_high), 2) if fast.day_high else None,
+            "day_low":             round(float(fast.day_low), 2) if fast.day_low else None,
+            "fifty_two_week_high": round(float(fast.year_high), 2) if fast.year_high else None,
+            "fifty_two_week_low":  round(float(fast.year_low), 2) if fast.year_low else None,
+            "currency":            fast.currency or "USD",
+            "cache_hit":           False,
+        }
+
+        _cache_set(cache_key, (result, CACHE_TTL_QUOTE))
+        return result
+
+    except Exception as e:
+        logger.error("quote fetch failed for %s: %s: %s", ticker, type(e).__name__, e)
+        return {"error": f"Failed to fetch {ticker!r}: {type(e).__name__}"}
+
+
+@tool
+def get_stock_quote(ticker: str) -> dict:
+    """Get current price + day movement + 52-week range for a single ticker.
+
+    Args:
+        ticker: Stock or ETF symbol (e.g., "AAPL", "MSFT", "VTI").
+                Case-insensitive; whitespace stripped.
+
+    Returns:
+        On success: dict with keys
+          - ticker, current_price, prev_close, change, change_pct,
+            day_high, day_low, fifty_two_week_high, fifty_two_week_low,
+            currency, cache_hit
+        On failure: {"error": "..."}
+    """
+    return _fetch_quote(ticker)
