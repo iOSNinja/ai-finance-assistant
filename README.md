@@ -8,8 +8,6 @@
 ![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o-black)
 ![License](https://img.shields.io/badge/license-private-lightgrey)
 
-Capstone project for **Interview Kickstart's *Applied Agentic AI for SWEs*** program.
-
 ---
 
 ## 📺 Demo
