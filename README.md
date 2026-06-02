@@ -90,7 +90,7 @@ flowchart TD
     Synth --> Response(["Final Answer"])
 ```
 
-For deeper architecture detail, see [`docs/architecture.svg`](docs/architecture.svg).
+For deeper architecture detail, see [`docs/architecture.svg`](docs/architecture.svg). My initial versions: see [`version1`](docs/v1-sketch.jpeg), [`version2`](docs/v2-sketch.jpeg)
 
 ---
 
