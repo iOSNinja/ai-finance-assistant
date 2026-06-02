@@ -11,6 +11,7 @@ from src.agents.market.tool import (
     get_stock_quote,
 )
 
+from src.agents.news.tool import search_financial_news
 
 def _render_quote_card(name: str, q: dict) -> None:
     """Render a single quote as an st.metric."""
@@ -99,6 +100,15 @@ def _render_stock_lookup() -> None:
         f"{hist['data_points']} data points · {hist['start_date']} → {hist['end_date']}"
     )
 
+    st.line_chart(df["close"], height=300)
+    st.caption(
+        f"{hist['data_points']} data points · {hist['start_date']} → {hist['end_date']}"
+    )
+
+    # News section after the chart
+    st.markdown("---")
+    _render_ticker_news(quote["ticker"])
+
 
 def render() -> None:
     st.markdown(
@@ -127,3 +137,50 @@ def render() -> None:
         "trading hours (9:30 AM – 4 PM ET) reflect the last available close. "
         "Cached data is refreshed every 30 minutes."
     )
+
+def _render_news_card(article: dict) -> None:
+    """Render a single news article as a styled card."""
+    title    = article.get("title", "(untitled)")
+    url      = article.get("url", "#")
+    source   = article.get("source", "unknown source")
+    date     = article.get("published_date", "")
+    snippet  = (article.get("snippet", "") or "")[:240].strip()
+    if len(article.get("snippet", "")) > 240:
+        snippet += "..."
+
+    st.markdown(
+        f'<div class="finnie-card" style="padding:16px;margin-bottom:10px;">'
+        f'  <div style="font-weight:600;font-size:1rem;line-height:1.3;">'
+        f'    <a href="{url}" target="_blank" style="color:var(--text-primary);">{title}</a>'
+        f'  </div>'
+        f'  <div style="font-size:0.78rem;color:var(--text-muted);margin-top:6px;'
+        f'              text-transform:uppercase;letter-spacing:0.05em;">'
+        f'    {source} · {date}'
+        f'  </div>'
+        f'  <div style="font-size:0.92rem;color:var(--text-secondary);margin-top:10px;line-height:1.5;">'
+        f'    {snippet}'
+        f'  </div>'
+        f'</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def _render_ticker_news(ticker: str) -> None:
+    """Fetch + render recent news for a ticker."""
+    st.markdown("### 📰 Recent news")
+    with st.spinner(f"Fetching news on {ticker}..."):
+        news = search_financial_news.invoke({"query": f"{ticker} stock", "max_results": 4})
+
+    if "error" in news:
+        st.warning(f"Couldn't fetch news: {news['error']}")
+        return
+
+    if news.get("num_results", 0) == 0:
+        st.info(f"No recent news found for {ticker}.")
+        return
+
+    if news.get("cache_hit"):
+        st.caption("🕒 Cached news — refreshes hourly.")
+
+    for article in news["results"]:
+        _render_news_card(article)
