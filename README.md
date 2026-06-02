@@ -90,7 +90,7 @@ flowchart TD
     Synth --> Response(["Final Answer"])
 ```
 
-For deeper architecture detail, see [`docs/architecture.md`](docs/architecture.md).
+For deeper architecture detail, see [`docs/architecture.svg`](docs/architecture.svg).
 
 ---
 
@@ -339,7 +339,7 @@ Every guardrail firing logged with metadata for audit.
 
 ---
 
-## 🎓 What I Learned Building This
+## 🎓 What I Learnt Building This
 
 Selected highlights:
 - **Per-agent state isolation** via `Annotated[..., reset_or_add_messages]` reducer
