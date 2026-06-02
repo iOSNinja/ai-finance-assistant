@@ -11,7 +11,10 @@ from src.agents.market.tool import (
     get_stock_quote,
 )
 
-from src.agents.news.tool import search_financial_news
+import yfinance as yf
+from src.utils.logger import setup_logger
+
+logger = setup_logger("finnie.web_app.tabs.markets")
 
 def _render_quote_card(name: str, q: dict) -> None:
     """Render a single quote as an st.metric."""
@@ -165,22 +168,121 @@ def _render_news_card(article: dict) -> None:
     )
 
 
+def _fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
+    """Fetch ticker-specific news from Yahoo Finance via yfinance.
+
+    Returns normalized news items: {title, url, source, published_date, snippet}.
+    Handles both the older flat yfinance news format and the newer wrapped one.
+    """
+    ticker_upper = ticker.upper().strip()
+    logger.info("Fetching ticker news | ticker=%s | limit=%s", ticker_upper, limit)
+
+    try:
+        t = yf.Ticker(ticker_upper)
+        raw = t.news[:limit]
+        logger.info("Fetched raw news items | ticker=%s | raw_count=%d", ticker_upper, len(raw))
+    except Exception:
+        logger.exception("Failed to fetch ticker news from yfinance | ticker=%s", ticker_upper)
+        return []
+
+    normalized: list[dict] = []
+    skipped_count = 0
+
+    for index, item in enumerate(raw, start=1):
+        logger.debug("Normalizing news item | ticker=%s | item_index=%d", ticker_upper, index)
+
+        # Newer yfinance wraps data in "content"; older flattens it
+        if "content" in item and isinstance(item["content"], dict):
+            logger.debug("Detected wrapped yfinance news format | ticker=%s | item_index=%d", ticker_upper, index)
+
+            c = item["content"]
+            title = c.get("title", "")
+            summary = c.get("summary", "") or c.get("description", "")
+
+            # canonicalUrl can be a dict or a string depending on yfinance version
+            canonical = c.get("canonicalUrl") or c.get("clickThroughUrl") or {}
+            url = canonical.get("url", "") if isinstance(canonical, dict) else str(canonical)
+
+            provider = c.get("provider") or {}
+            source = provider.get("displayName", "") if isinstance(provider, dict) else str(provider)
+
+            pub_date = c.get("pubDate", "")
+        else:
+            logger.debug("Detected flat yfinance news format | ticker=%s | item_index=%d", ticker_upper, index)
+
+            # Old flat format
+            title = item.get("title", "")
+            url = item.get("link", "")
+            source = item.get("publisher", "")
+            summary = ""
+
+            ts = item.get("providerPublishTime")
+            pub_date = datetime.fromtimestamp(ts).strftime("%Y-%m-%d") if ts else ""
+
+        if title and url:
+            normalized.append({
+                "title": title,
+                "url": url,
+                "source": source or "Yahoo Finance",
+                "published_date": pub_date,
+                "snippet": summary[:240] + ("..." if len(summary) > 240 else ""),
+            })
+
+            logger.debug(
+                "Normalized news item | ticker=%s | item_index=%d | source=%s | title=%s",
+                ticker_upper,
+                index,
+                source or "Yahoo Finance",
+                title,
+            )
+        else:
+            skipped_count += 1
+            logger.warning(
+                "Skipping news item because title or url is missing | ticker=%s | item_index=%d | has_title=%s | has_url=%s",
+                ticker_upper,
+                index,
+                bool(title),
+                bool(url),
+            )
+
+    logger.info(
+        "Finished normalizing ticker news | ticker=%s | normalized_count=%d | skipped_count=%d",
+        ticker_upper,
+        len(normalized),
+        skipped_count,
+    )
+
+    return normalized
+
+
 def _render_ticker_news(ticker: str) -> None:
-    """Fetch + render recent news for a ticker."""
+    """Fetch + render ticker-specific news from Yahoo Finance."""
+    ticker_upper = ticker.upper().strip()
+    logger.info("Rendering ticker news section | ticker=%s", ticker_upper)
+
     st.markdown("### 📰 Recent news")
-    with st.spinner(f"Fetching news on {ticker}..."):
-        news = search_financial_news.invoke({"query": f"{ticker} stock", "max_results": 4})
 
-    if "error" in news:
-        st.warning(f"Couldn't fetch news: {news['error']}")
+    with st.spinner(f"Fetching news on {ticker_upper}..."):
+        articles = _fetch_ticker_news(ticker_upper, limit=5)
+
+    if not articles:
+        logger.info("No news articles to render | ticker=%s", ticker_upper)
+        st.info(f"No recent news found for {ticker_upper}.")
         return
 
-    if news.get("num_results", 0) == 0:
-        st.info(f"No recent news found for {ticker}.")
-        return
+    logger.info(
+        "Rendering news articles | ticker=%s | article_count=%d",
+        ticker_upper,
+        len(articles),
+    )
 
-    if news.get("cache_hit"):
-        st.caption("🕒 Cached news — refreshes hourly.")
-
-    for article in news["results"]:
+    for index, article in enumerate(articles, start=1):
+        logger.info(
+            "Rendering news card | ticker=%s | item_index=%d | title=%s",
+            ticker_upper,
+            index,
+            article.get("title", ""),
+        )
         _render_news_card(article)
+
+    logger.info("Finished rendering ticker news section | ticker=%s", ticker_upper)
