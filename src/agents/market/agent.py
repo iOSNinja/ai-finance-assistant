@@ -91,7 +91,13 @@ def market_agent_node(state: FinnieState) -> dict:
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
     try:
-        response: AIMessage = market_llm.invoke(messages)
+        response: AIMessage = market_llm.invoke(
+            messages,
+            config={
+                "run_name": "market_agent.llm_call",
+                "tags": ["agent:market", "operation:reasoning"],
+            },
+        )
     except Exception as e:
         logger.error("Market agent LLM call failed: %s: %s", type(e).__name__, e)
         # return error message in market_messages & market_response

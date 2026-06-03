@@ -93,7 +93,13 @@ def goal_agent_node(state: FinnieState) -> dict:
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
     try:
-        response: AIMessage = goal_llm.invoke(messages)
+        response: AIMessage = goal_llm.invoke(
+            messages,
+            config={
+                "run_name": "goal_agent.llm_call",
+                "tags": ["agent:goal", "operation:reasoning"],
+            },
+        )
     except Exception as e:
         logger.error("Goal agent LLM call failed: %s: %s", type(e).__name__, e)
         # return error message in goal_messages & goal_response

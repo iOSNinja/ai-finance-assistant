@@ -92,15 +92,30 @@ def qa_agent_node(state: FinnieState) -> dict:
             "qa_response": fallback
         }
    
+    # logger.info(
+    #    "QA agent: invoking LLM | history_len=%d, loop_cnt=%d",
+    #    len(qa_msgs),
+    #    loop_cnt
+    # )
+
     logger.info(
-       "QA agent: invoking LLM | history_len=%d, loop_cnt=%d",
-       len(qa_msgs),
-       loop_cnt
+       "QA agent: invoking LLM",
+       extra={
+           "agent": "qa",
+           "history_len": len(qa_msgs),
+           "ai_turns": loop_cnt,
+       }
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
     try:
-        response: AIMessage = qa_llm.invoke(messages)
+        response: AIMessage = qa_llm.invoke(
+            messages,
+            config={
+                "run_name": "qa_agent.llm_call",
+                "tags": ["agent:qa", "operation:reasoning"],
+            },
+        )
     except Exception as e:
         logger.error("QA agent LLM call failed: %s: %s", type(e).__name__, e)
         # return error message in qa_messages & qa_response

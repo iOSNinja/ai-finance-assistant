@@ -264,14 +264,15 @@ This section grows as each phase lands. Each layer is built **into** the system,
 
 ### 1. Observability via LangSmith ✅ Live
 
-- Auto-traced LangGraph + LangChain calls (zero code changes via three env vars)
-- Per-agent tagging for filtering in the dashboard (`env`, `surface`, `version`)
-- Custom metadata (thread_id, query length) on every trace
-- Named runs (`finnie.query: <query>`) for instant scanning
+- Auto-traced LangGraph + LangChain calls via three env vars (zero code changes)
+- Custom run names per agent — trace tree reads as a story:
+  `finnie.query → orchestrator.routing_decision → qa_agent.llm_call → finance_qa_search → synthesizer.merge`
+- External API helpers (`yfinance`, `Tavily`) decorated with `@traceable` for full coverage
+- Structured JSON logs (`LOG_FORMAT=json`) with embedded LangSmith `trace_id` — correlatable to traces in any log aggregator
+- Per-agent tags + dynamic tags (e.g., `agents_merged:3` on the synthesizer)
+- Production sampling at 10–20% scheduled for Phase 6 (cloud deployment)
 
-**Outcome:** open any trace in LangSmith → tree view of orchestrator → routing decision → every agent's tool calls → every LLM call. Root-cause analysis in under 2 minutes.
-
-**Target outcome:** open any failed query in LangSmith, see the routing decision + every tool call + every LLM call in a tree view. Root-cause analysis in under 2 minutes.
+**Outcome:** open any trace → see the routing decision + every tool call + every LLM call in a tree view. Click any log line → jump to the trace via `trace_id`. Root-cause analysis in under 2 minutes.
 
 ### 2. Evaluation Framework 🚧 *In active development*
 

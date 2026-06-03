@@ -79,15 +79,19 @@ def synthesizer_node(state: FinnieState) -> dict:
     user_query = state.get("user_query", "")
 
     try:
-        response = llm.invoke([
-            SystemMessage(content=SYNTHESIZER_PROMPT),
+        response = llm.invoke(
+            [SystemMessage(content=SYNTHESIZER_PROMPT),
             HumanMessage(
                 content=(
                     f"User query:\n{user_query}\n\n"
                     f"Agent outputs:\n{agent_block}"
                 )
-            ),
-        ])
+            )],
+            config={
+                "run_name": "synthesizer.merge",
+                "tags": ["operation:synthesis", f"agents_merged:{len(contributions)}"],
+            },
+        )
         merged = response.content or ""
     except Exception as e:
         logger.error("Synthesizer LLM call failed: %s: %s", type(e).__name__, e)

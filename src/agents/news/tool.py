@@ -15,6 +15,7 @@ import time
 
 from langchain_core.tools import tool
 from tavily import TavilyClient
+from langsmith import traceable
 
 from src.utils.logger import setup_logger
 from src.core.config import NEWS_CONFIG
@@ -72,6 +73,20 @@ _tavily_client: TavilyClient | None = (
     TavilyClient(api_key=_tavily_key) if _tavily_key else None
 )
 
+@traceable(name="tavily.search", run_type="tool")
+def _tavily_search(query: str, max_results: int) -> list[dict]:
+    """Internal helper: actual Tavily call. Wrapped for trace visibility."""
+    if _tavily_client is None:
+        raise RuntimeError("Tavily client not configured")
+    response = _tavily_client.search(
+        query=query,
+        search_depth="advanced",
+        topic="news",
+        max_results=max_results,
+        include_domains=ALLOWED_DOMAINS,
+    )
+    return response.get("results", [])
+
 @tool
 def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) -> dict:
     """Search recent financial news from reputable sources.
@@ -105,13 +120,7 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
 
     logger.info("news fetch: q=%r k=%d", query[:60], max_results)
     try:
-        response = _tavily_client.search(
-            query=query,
-            search_depth="advanced",
-            topic="news",
-            max_results=max_results,
-            include_domains=ALLOWED_DOMAINS,
-        )
+        response = _tavily_search(query, max_results)
     except Exception as e:
         logger.error("Tavily search failed: %s: %s", type(e).__name__, e)
         return {
@@ -119,7 +128,7 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
             "query": query,
         }
 
-    raw_results = response.get("results", [])
+    raw_results = response   # already the list, returned by _tavily_search
     if not raw_results:
         return {
             "query": query,

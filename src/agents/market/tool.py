@@ -13,6 +13,7 @@ rate limits and to keep the UI snappy. Cache TTLs come from config.yaml.
 import yfinance as yf
 import time
 from langchain_community.tools import tool
+from langsmith import traceable
 
 from src.utils.logger import setup_logger
 from src.core.config import MARKET_CONFIG
@@ -55,6 +56,7 @@ def _cache_set(key: str, value: dict, ttl_seconds: float) -> None:
 
 
 # private method
+@traceable(name="yfinance.fetch_quote", run_type="tool")
 def _fetch_quote(ticker: str) -> dict:
     """Internal helper methid used by get_stock_quote AND get_index_overview.
 

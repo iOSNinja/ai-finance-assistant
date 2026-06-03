@@ -92,7 +92,13 @@ def portfolio_agent_node(state: FinnieState) -> dict:
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
     try:
-        response: AIMessage = portfolio_llm.invoke(messages)
+        response: AIMessage = portfolio_llm.invoke(
+            messages,
+            config={
+                "run_name": "portfolio_agent.llm_call",
+                "tags": ["agent:portfolio", "operation:reasoning"],
+            },
+        )
     except Exception as e:
         logger.error("Portfolio agent LLM call failed: %s: %s", type(e).__name__, e)
         # return error message in portfolio_messages & portfolio_response

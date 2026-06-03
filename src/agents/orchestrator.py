@@ -44,11 +44,15 @@ def orchestrator_node(
     # Retrieves the last 6 messages from conversation history (for context).
     history = state.get("messages", [])[-6:] 
 
-    decision: OrchestratorDecision = routing_llm.invoke([
-        SystemMessage(content=ORCHESTRATOR_PROMPT),
+    decision: OrchestratorDecision = routing_llm.invoke(
+        [SystemMessage(content=ORCHESTRATOR_PROMPT),
         *history,
-        HumanMessage(content=query),
-    ])
+        HumanMessage(content=query)],
+        config={
+            "run_name": "orchestrator.routing_decision",
+            "tags": ["operation:routing"],
+        },
+    )
 
     logger.info("Agents: %s | Reason: %s", decision.agents, decision.reasoning)
 

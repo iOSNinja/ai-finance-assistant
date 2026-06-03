@@ -93,7 +93,13 @@ def tax_agent_node(state: FinnieState) -> dict:
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
     try:
-        response: AIMessage = tax_llm.invoke(messages)
+        response: AIMessage = tax_llm.invoke(
+            messages,
+            config={
+                "run_name": "tax_agent.llm_call",
+                "tags": ["agent:tax", "operation:reasoning"],
+            },
+        )
     except Exception as e:
         logger.error("Tax agent LLM call failed: %s: %s", type(e).__name__, e)
         # return error message in tax_messages & tax_response
