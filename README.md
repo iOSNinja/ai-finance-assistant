@@ -276,7 +276,7 @@ This section grows as each phase lands. Each layer is built **into** the system,
 
 ### 2. Evaluation Framework 🚧 *In active development*
 
-Five-layer evaluation (after Week 8's Module B framework):
+Five-layer evaluation:
 
 | Layer | Metric | Where it fires |
 |---|---|---|
