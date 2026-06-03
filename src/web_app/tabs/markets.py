@@ -175,12 +175,12 @@ def _fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
     Handles both the older flat yfinance news format and the newer wrapped one.
     """
     ticker_upper = ticker.upper().strip()
-    logger.info("Fetching ticker news | ticker=%s | limit=%s", ticker_upper, limit)
+    logger.info("Fetching ticker news", extra={"ticker": ticker_upper, "limit": limit})
 
     try:
         t = yf.Ticker(ticker_upper)
         raw = t.news[:limit]
-        logger.info("Fetched raw news items | ticker=%s | raw_count=%d", ticker_upper, len(raw))
+        logger.info("Fetched raw news items", extra={"ticker": ticker_upper, "raw_count": len(raw)})
     except Exception:
         logger.exception("Failed to fetch ticker news from yfinance | ticker=%s", ticker_upper)
         return []
@@ -189,11 +189,11 @@ def _fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
     skipped_count = 0
 
     for index, item in enumerate(raw, start=1):
-        logger.debug("Normalizing news item | ticker=%s | item_index=%d", ticker_upper, index)
+        logger.debug("Normalizing news item", extra={"ticker": ticker_upper, "item_index": index})
 
         # Newer yfinance wraps data in "content"; older flattens it
         if "content" in item and isinstance(item["content"], dict):
-            logger.debug("Detected wrapped yfinance news format | ticker=%s | item_index=%d", ticker_upper, index)
+            logger.debug("Detected wrapped yfinance news format", extra={"ticker": ticker_upper, "item_index": index})
 
             c = item["content"]
             title = c.get("title", "")
@@ -208,7 +208,7 @@ def _fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
 
             pub_date = c.get("pubDate", "")
         else:
-            logger.debug("Detected flat yfinance news format | ticker=%s | item_index=%d", ticker_upper, index)
+            logger.debug("Detected flat yfinance news format", extra={"ticker": ticker_upper, "item_index": index})
 
             # Old flat format
             title = item.get("title", "")
@@ -229,27 +229,19 @@ def _fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
             })
 
             logger.debug(
-                "Normalized news item | ticker=%s | item_index=%d | source=%s | title=%s",
-                ticker_upper,
-                index,
-                source or "Yahoo Finance",
-                title,
+                "Normalized news item",
+                extra={"ticker": ticker_upper, "item_index": index, "source": source or "Yahoo Finance", "title": title}
             )
         else:
             skipped_count += 1
             logger.warning(
-                "Skipping news item because title or url is missing | ticker=%s | item_index=%d | has_title=%s | has_url=%s",
-                ticker_upper,
-                index,
-                bool(title),
-                bool(url),
+                "Skipping news item - missing title or url",
+                extra={"ticker": ticker_upper, "item_index": index, "has_title": bool(title), "has_url": bool(url)}
             )
 
     logger.info(
-        "Finished normalizing ticker news | ticker=%s | normalized_count=%d | skipped_count=%d",
-        ticker_upper,
-        len(normalized),
-        skipped_count,
+        "Finished normalizing ticker news",
+        extra={"ticker": ticker_upper, "normalized_count": len(normalized), "skipped_count": skipped_count}
     )
 
     return normalized
@@ -258,7 +250,7 @@ def _fetch_ticker_news(ticker: str, limit: int = 5) -> list[dict]:
 def _render_ticker_news(ticker: str) -> None:
     """Fetch + render ticker-specific news from Yahoo Finance."""
     ticker_upper = ticker.upper().strip()
-    logger.info("Rendering ticker news section | ticker=%s", ticker_upper)
+    logger.info("Rendering ticker news section", extra={"ticker": ticker_upper})
 
     st.markdown("### 📰 Recent news")
 
@@ -266,23 +258,20 @@ def _render_ticker_news(ticker: str) -> None:
         articles = _fetch_ticker_news(ticker_upper, limit=5)
 
     if not articles:
-        logger.info("No news articles to render | ticker=%s", ticker_upper)
+        logger.info("No news articles to render", extra={"ticker": ticker_upper})
         st.info(f"No recent news found for {ticker_upper}.")
         return
 
     logger.info(
-        "Rendering news articles | ticker=%s | article_count=%d",
-        ticker_upper,
-        len(articles),
+        "Rendering news articles",
+        extra={"ticker": ticker_upper, "article_count": len(articles)}
     )
 
     for index, article in enumerate(articles, start=1):
         logger.info(
-            "Rendering news card | ticker=%s | item_index=%d | title=%s",
-            ticker_upper,
-            index,
-            article.get("title", ""),
+            "Rendering news card",
+            extra={"ticker": ticker_upper, "item_index": index, "title": article.get("title", "")}
         )
         _render_news_card(article)
 
-    logger.info("Finished rendering ticker news section | ticker=%s", ticker_upper)
+    logger.info("Finished rendering ticker news section", extra={"ticker": ticker_upper})

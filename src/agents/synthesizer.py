@@ -50,7 +50,7 @@ def synthesizer_node(state: FinnieState) -> dict:
         if value:
             contributions.append((label, value))
 
-    logger.info("Synthesizing %d agent contribution(s)", len(contributions))
+    logger.info("Synthesizing agent contributions", extra={"contribution_count": len(contributions)})
 
     # No agent produced anything — return fallback
     if not contributions:
@@ -68,7 +68,7 @@ def synthesizer_node(state: FinnieState) -> dict:
     if len(contributions) == 1:
         _, single = contributions[0]
         final_answer = _maybe_append_disclaimer(single, state)
-        logger.info("Single-agent passthrough | len=%d", len(final_answer))
+        logger.info("Single-agent passthrough", extra={"response_len": len(final_answer)})
         return {
             "final_answer": final_answer,
             "messages": [AIMessage(content=final_answer)],
@@ -94,12 +94,12 @@ def synthesizer_node(state: FinnieState) -> dict:
         )
         merged = response.content or ""
     except Exception as e:
-        logger.error("Synthesizer LLM call failed: %s: %s", type(e).__name__, e)
+        logger.error("Synthesizer LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
         # Fallback to a simple concatenation if the LLM can't merge
         merged = "\n\n".join(text for _, text in contributions)
 
     final_answer = _maybe_append_disclaimer(merged, state)
-    logger.info("Multi-agent merge complete | len=%d", len(final_answer))
+    logger.info("Multi-agent merge complete", extra={"response_len": len(final_answer)})
 
     return {
         "final_answer": final_answer,

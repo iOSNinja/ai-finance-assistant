@@ -27,7 +27,7 @@ def main() -> None:
 
     # 1. Reset Chroma so re-runs are deterministic
     if persist_dir.exists():
-        logger.info("Removing existing Chroma directory: %s", persist_dir)
+        logger.info("Removing existing Chroma directory", extra={"path": str(persist_dir)})
         shutil.rmtree(persist_dir)
 
     # 2. Load + chunk every source
@@ -37,21 +37,21 @@ def main() -> None:
         chunks = chunk_documents(docs)
         all_chunks.extend(chunks)
 
-    logger.info("Total chunks across all sources: %d", len(all_chunks))
+    logger.info("Total chunks across all sources", extra={"chunk_count": len(all_chunks)})
 
     if not all_chunks:
         logger.error("No chunks to ingest. Check source URLs.")
         return
 
     # 3. Embed + persist
-    logger.info("Embedding and persisting to %s ...", persist_dir)
+    logger.info("Embedding and persisting to Chroma", extra={"persist_dir": str(persist_dir)})
     Chroma.from_documents(
         documents=all_chunks,
         embedding=embeddings,
         collection_name=collection_name,
         persist_directory=str(persist_dir),
     )
-    logger.info("Done. Knowledge base built at %s", persist_dir)
+    logger.info("Done. Knowledge base built", extra={"persist_dir": str(persist_dir)})
 
 
 if __name__ == "__main__":

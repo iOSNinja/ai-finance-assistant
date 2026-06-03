@@ -71,8 +71,8 @@ def required_monthly_savings(
         monthly_contribution is 0.0 and a "note" key explains.
     """
     logger.info(
-        "required_monthly_savings: target=%.2f years=%d return=%.2f%% current=%.2f",
-        target_amount, years, expected_annual_return_pct, current_savings,
+        "required_monthly_savings called",
+        extra={"target_amount": target_amount, "years": years, "expected_annual_return_pct": expected_annual_return_pct, "current_savings": current_savings}
     )
 
     _validate_positive("target_amount", target_amount)
@@ -126,7 +126,7 @@ def required_monthly_savings(
         "growth_from_current_savings": round(fv_of_current - current_savings, 2),
         "growth_from_contributions":   round(growth_from_contrib, 2),
     }
-    logger.info("required_monthly_savings result: $%.2f/month", result["monthly_contribution"])
+    logger.info("required_monthly_savings result", extra={"monthly_contribution": result["monthly_contribution"]})
     return result
 
 
@@ -159,8 +159,8 @@ def project_growth(
           - params:               dict — echoed inputs
     """
     logger.info(
-        "project_growth: current=%.2f monthly=%.2f years=%d return=%.2f%%",
-        current_savings, monthly_contribution, years, expected_annual_return_pct,
+        "project_growth called",
+        extra={"current_savings": current_savings, "monthly_contribution": monthly_contribution, "years": years, "expected_annual_return_pct": expected_annual_return_pct}
     )
 
     if current_savings < 0:
@@ -208,7 +208,7 @@ def project_growth(
             "expected_annual_return_pct": expected_annual_return_pct,
         },
     }
-    logger.info("project_growth result: final $%.2f", result["final_balance"])
+    logger.info("project_growth result", extra={"final_balance": result["final_balance"]})
     return result
 
 

@@ -16,7 +16,7 @@ logger = setup_logger("finnie.agents.tax.tool")
 _store = Chroma(
     collection_name=RAG_CONFIG.get("collection_name", "finnie_kb"),
     embedding_function=embeddings,
-    persist_directory=RAG_CONFIG.get("persist_dir", ".\chroma_db")
+    persist_directory=RAG_CONFIG.get("persist_dir", "./chroma_db"),
 )
 
 @tool
@@ -45,7 +45,7 @@ def tax_education_search(
             Returns [] on failure or no matches.
     """
         
-    logger.info("Tax KB search: q=%r k=%d", query, top_k)
+    logger.info("Tax KB search called", extra={"query": query, "top_k": top_k})
 
     try:
         results = _store.similarity_search_with_relevance_scores(
@@ -54,11 +54,11 @@ def tax_education_search(
             filter={"category": "tax_education"},
         )
     except Exception as e:
-        logger.error("Tax KB search failed: %s: %s", type(e).__name__, e)
+        logger.error("Tax KB search failed", extra={"error_type": type(e).__name__, "error": str(e)})
         return []
     
     if not results:
-        logger.warning("Tax KB search returned no results for query: %r", query[:80])
+        logger.warning("Tax KB search returned no results", extra={"query": query[:80]})
         return []
     
     # return as a list of custom dicts
@@ -72,7 +72,7 @@ def tax_education_search(
             "relevance": round(float(score), 4),
         })
     
-    logger.info("Tax KB search: returned %d chunks", len(ouput))
+    logger.info("Tax KB search returned results", extra={"chunk_count": len(ouput)})
 
     return ouput
 

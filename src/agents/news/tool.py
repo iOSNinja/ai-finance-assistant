@@ -115,14 +115,14 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
     
     cache_key = f"news:{query}:{max_results}"
     if (cached := _cache_get(cache_key)) is not None:
-        logger.info("news cache hit: q=%r", query[:60])
+        logger.info("news cache hit", extra={"query": query[:60]})
         return {**cached, "cache_hit": True}
 
-    logger.info("news fetch: q=%r k=%d", query[:60], max_results)
+    logger.info("news fetch called", extra={"query": query[:60], "max_results": max_results})
     try:
         response = _tavily_search(query, max_results)
     except Exception as e:
-        logger.error("Tavily search failed: %s: %s", type(e).__name__, e)
+        logger.error("Tavily search failed", extra={"error_type": type(e).__name__, "error": str(e)})
         return {
             "error": f"Search service unavailable: {type(e).__name__}",
             "query": query,
@@ -156,7 +156,7 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
         "cache_hit":   False,
     }
     _cache_set(cache_key, result, CACHE_TTL)
-    logger.info("news fetch returned %d results", len(results))
+    logger.info("news fetch returned results", extra={"result_count": len(results)})
     return result
 
 def _extract_domain(url: str) -> str:

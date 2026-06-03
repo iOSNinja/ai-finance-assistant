@@ -78,8 +78,8 @@ def qa_agent_node(state: FinnieState) -> dict:
     if loop_cnt >= MAX_AGENT_ITERATIONS:
         # return fallback message in qa_messages & qa_response
         logger.warning(
-            "QA agent hit MAX_AGENT_ITERATIONS=%d - forcing fallback",
-            MAX_AGENT_ITERATIONS
+            "QA agent hit MAX_AGENT_ITERATIONS - forcing fallback",
+            extra={"max_iterations": MAX_AGENT_ITERATIONS}
         )
 
         fallback = (
@@ -117,7 +117,7 @@ def qa_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("QA agent LLM call failed: %s: %s", type(e).__name__, e)
+        logger.error("QA agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
         # return error message in qa_messages & qa_response
         err = (
             "QA agent ran into an issue while answering. Please retry or rephrase your question.",
@@ -134,11 +134,11 @@ def qa_agent_node(state: FinnieState) -> dict:
     update: dict = {"qa_messages": [response]}
 
     if has_tools:
-        logger.info("QA agent requested: %d tool call(s)", len(response.tool_calls))
+        logger.info("QA agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
     else:
         # If response is plain text → update qa_messages AND set qa_response; the conditional edge will route to synthesizer_node
         update["qa_response"] = response.content or ""
-        logger.info("QA agent produced final answer | len=%d", len(update["qa_response"]))
+        logger.info("QA agent produced final answer", extra={"response_len": len(update["qa_response"])})
 
     return update
 

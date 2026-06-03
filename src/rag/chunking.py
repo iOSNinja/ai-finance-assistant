@@ -23,5 +23,5 @@ _splitter = RecursiveCharacterTextSplitter(
 def chunk_documents(docs: list[Document]) -> list[Document]:
     """Split documents into RAG-sized chunks, preserving metadata."""
     chunks = _splitter.split_documents(docs)
-    logger.info("Chunked %d docs -> %d chunks", len(docs), len(chunks))
+    logger.info("Documents chunked", extra={"input_docs": len(docs), "output_chunks": len(chunks)})
     return chunks

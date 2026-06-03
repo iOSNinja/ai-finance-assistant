@@ -65,8 +65,8 @@ def news_agent_node(state: FinnieState) -> dict:
     if loop_cnt >= MAX_AGENT_ITERATIONS:
         # return fallback message in news_messages & news_response
         logger.warning(
-            "News agent hit MAX_AGENT_ITERATIONS=%d — forcing fallback",
-            MAX_AGENT_ITERATIONS,
+            "News agent hit MAX_AGENT_ITERATIONS - forcing fallback",
+            extra={"max_iterations": MAX_AGENT_ITERATIONS}
         )
         fallback = (
             "I wasn't able to fetch news on that. Try a more specific query "
@@ -78,9 +78,8 @@ def news_agent_node(state: FinnieState) -> dict:
         }
 
     logger.info(
-        "News agent: invoking LLM | history_len=%d loop_cnt=%d",
-        len(news_msgs),
-        loop_cnt,
+        "News agent: invoking LLM",
+        extra={"history_len": len(news_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -93,7 +92,7 @@ def news_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("News agent LLM call failed: %s: %s", type(e).__name__, e)
+        logger.error("News agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
         # return error message in news_messages & news_response
         err = (
             "I ran into an issue fetching news. "
@@ -108,11 +107,11 @@ def news_agent_node(state: FinnieState) -> dict:
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"news_messages": [response]}
     if has_tools:
-        logger.info("News agent: requested %d tool call(s)", len(response.tool_calls))
+        logger.info("News agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
     else:
         # If response is plain text → update news_messages AND set news_response; the conditional edge will route to synthesizer_node
         update["news_response"] = response.content or ""
-        logger.info("News agent: produced final answer | len=%d", len(update["news_response"]))
+        logger.info("News agent: produced final answer", extra={"response_len": len(update["news_response"])})
 
     return update
 

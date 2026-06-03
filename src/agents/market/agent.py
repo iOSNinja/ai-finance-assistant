@@ -70,8 +70,8 @@ def market_agent_node(state: FinnieState) -> dict:
     if loop_cnt >= MAX_AGENT_ITERATIONS:
         # return fallback message in market_messages & market_response
         logger.warning(
-            "Market agent hit MAX_AGENT_ITERATIONS=%d — forcing fallback",
-            MAX_AGENT_ITERATIONS,
+            "Market agent hit MAX_AGENT_ITERATIONS - forcing fallback",
+            extra={"max_iterations": MAX_AGENT_ITERATIONS}
         )
         fallback = (
             "I wasn't able to fetch market data right now. Please try "
@@ -84,9 +84,8 @@ def market_agent_node(state: FinnieState) -> dict:
         }
 
     logger.info(
-        "Market agent: invoking LLM | history_len=%d loop_cnt=%d",
-        len(market_msgs),
-        loop_cnt,
+        "Market agent: invoking LLM",
+        extra={"history_len": len(market_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -99,7 +98,7 @@ def market_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("Market agent LLM call failed: %s: %s", type(e).__name__, e)
+        logger.error("Market agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
         # return error message in market_messages & market_response
         err = (
             "I ran into an issue fetching market data. "
@@ -114,11 +113,11 @@ def market_agent_node(state: FinnieState) -> dict:
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"market_messages": [response]}
     if has_tools:
-        logger.info("Market agent: requested %d tool call(s)", len(response.tool_calls))
+        logger.info("Market agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
     else:
         # If response is plain text → update market_messages AND set market_response; the conditional edge will route to synthesizer_node
         update["market_response"] = response.content or ""
-        logger.info("Market agent: produced final answer | len=%d", len(update["market_response"]))
+        logger.info("Market agent: produced final answer", extra={"response_len": len(update["market_response"])})
 
     return update
 

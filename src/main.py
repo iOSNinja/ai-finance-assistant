@@ -27,12 +27,12 @@ class FinnieAIFinanceAssistant:
 
         # Each session gets a unique thread_id so the checkpointer can scope memory
         self.thread_id = str(uuid.uuid4())
-        logger.info("Session ready | thread_id=%s", self.thread_id[:8])
+        logger.info("Session ready", extra={"thread_id": self.thread_id[:8]})
 
     def _new_session(self) -> None:
         """Start a fresh conversation thread (clears memory)."""
         self.thread_id = str(uuid.uuid4())
-        logger.info("New session | thread_id=%s", self.thread_id[:8])
+        logger.info("New session", extra={"thread_id": self.thread_id[:8]})
 
     def ask(self, query: str, surface: str = "cli") -> str:
         """Run one query end-to-end through the graph and return the final answer."""
@@ -69,7 +69,7 @@ class FinnieAIFinanceAssistant:
         try:
             final = self.graph.invoke(initial_state, config=config)
         except Exception as e:
-            logger.error("Graph invocation failed: %s: %s", type(e).__name__, e)
+            logger.error("Graph invocation failed", extra={"error_type": type(e).__name__, "error": str(e)})
             return (
                 "Sorry, something went wrong while processing your question. "
                 "Please try again."

@@ -68,11 +68,11 @@ def _fetch_quote(ticker: str) -> dict:
 
     # Check in local cache. If hit, return along with cache_hit flag
     if (cached := _cache_get(cache_key)) is not None: # using Walrus operator :=
-        logger.info("quote cache hit: %s", ticker)
+        logger.info("quote cache hit", extra={"ticker": ticker})
         return {**cached, "cache_hit": True}
 
     # If not in local cache, fetch using yfinance API
-    logger.info("quote not in local cache, fetching...: %s", ticker)
+    logger.info("quote not in local cache, fetching", extra={"ticker": ticker})
     try:
         t = yf.Ticker(ticker)
         # We use .fast_info because we only need the basics. 
@@ -108,7 +108,7 @@ def _fetch_quote(ticker: str) -> dict:
         return result
 
     except Exception as e:
-        logger.error("quote fetch failed for %s: %s: %s", ticker, type(e).__name__, e)
+        logger.error("quote fetch failed", extra={"ticker": ticker, "error_type": type(e).__name__, "error": str(e)})
         return {"error": f"Failed to fetch {ticker!r}: {type(e).__name__}"}
 
 
@@ -151,10 +151,10 @@ def get_historical_prices(ticker: str, period: str = "1mo") -> dict:
 
     cache_key = f"hist:{ticker}:{period}"
     if (cached := _cache_get(cache_key)) is not None:
-        logger.info("history cache hit: %s %s", ticker, period)
+        logger.info("history cache hit", extra={"ticker": ticker, "period": period})
         return {**cached, "cache_hit": True}
 
-    logger.info("history fetch: %s %s", ticker, period)
+    logger.info("history fetch", extra={"ticker": ticker, "period": period})
     try:
         t = yf.Ticker(ticker)
         df = t.history(period=period)
@@ -183,8 +183,7 @@ def get_historical_prices(ticker: str, period: str = "1mo") -> dict:
         return result
 
     except Exception as e:
-        logger.error("history fetch failed for %s %s: %s: %s",
-                     ticker, period, type(e).__name__, e)
+        logger.error("history fetch failed", extra={"ticker": ticker, "period": period, "error_type": type(e).__name__, "error": str(e)})
         return {"error": f"Failed to fetch history for {ticker!r}: {type(e).__name__}"}
     
 

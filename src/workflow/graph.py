@@ -148,6 +148,6 @@ def build_graph():
     memory = MemorySaver()
     graph = builder.compile(checkpointer=memory)
 
-    logger.info("Finnie graph compiled with %d nodes", 14)
+    logger.info("Finnie graph compiled", extra={"node_count": 14})
     return graph
 

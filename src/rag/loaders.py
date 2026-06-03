@@ -31,7 +31,7 @@ def _fetch_sitemap_urls(sitemap_url: str) -> list[str]:
     with urlopen(req) as response:
         xml = BeautifulSoup(response, "xml")
     urls = [loc.text for loc in xml.find_all("loc")]
-    logger.info("Sitemap %s returned %d urls", sitemap_url, len(urls))
+    logger.info("Sitemap parsed", extra={"sitemap_url": sitemap_url, "url_count": len(urls)})
     
     return urls
 
@@ -51,7 +51,7 @@ def load_documents_for_source(source: SourceConfig) -> list[Document]:
     else:
         urls = source["urls"]
 
-    logger.info("Loading %d URLs from source '%s'", len(urls), source["name"])
+    logger.info("Loading URLs from source", extra={"url_count": len(urls), "source_name": source["name"]})
 
     # load each URL as a document
     docs:list[Document] = []
@@ -69,10 +69,10 @@ def load_documents_for_source(source: SourceConfig) -> list[Document]:
                 d.metadata["category"] = source["category"]
             docs.extend(loaded)
         except Exception as e:
-            logger.warning("Failed to load %s - %s: %s", url, type(e).__name__, e)
+            logger.warning("Failed to load URL", extra={"url": url, "error_type": type(e).__name__, "error": str(e)})
             continue
         
-    logger.info("Source '%s' loaded %d docs", source["name"], len(docs))
+    logger.info("Source loaded", extra={"source_name": source["name"], "doc_count": len(docs)})
     return docs    
     
 

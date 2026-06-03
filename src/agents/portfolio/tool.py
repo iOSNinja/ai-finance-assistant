@@ -91,7 +91,7 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
           - risk_profile:             str  — descriptive label
           - weighted_expense_ratio:   float | None — only if ALL holdings provided one
     """
-    logger.info("analyze_portfolio: %d holdings received", len(holdings))
+    logger.info("analyze_portfolio called", extra={"holdings_count": len(holdings)})
     _validate_holdings(holdings)
 
     total_value = sum(h["value_usd"] for h in holdings)
@@ -142,8 +142,8 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
         "weighted_expense_ratio":    weighted_expense_ratio,
     }
     logger.info(
-        "analyze_portfolio result: total=$%.2f div_score=%.2f risk=%s",
-        result["total_value"], result["diversification_score"], result["risk_profile"],
+        "analyze_portfolio result",
+        extra={"total_value": result["total_value"], "diversification_score": result["diversification_score"], "risk_profile": result["risk_profile"]}
     )
     return result
 

@@ -70,8 +70,8 @@ def goal_agent_node(state: FinnieState) -> dict:
     if loop_cnt >= MAX_AGENT_ITERATIONS:
         # return fallback message in goal_messages & goal_response
         logger.warning(
-            "Goal agent hit MAX_AGENT_ITERATIONS=%d - forcing fallback",
-            MAX_AGENT_ITERATIONS
+            "Goal agent hit MAX_AGENT_ITERATIONS - forcing fallback",
+            extra={"max_iterations": MAX_AGENT_ITERATIONS}
         )
 
         fallback = (
@@ -86,9 +86,8 @@ def goal_agent_node(state: FinnieState) -> dict:
         }
    
     logger.info(
-       "Goal agent: invoking LLM | history_len=%d, loop_cnt=%d",
-       len(goal_msgs),
-       loop_cnt
+       "Goal agent: invoking LLM",
+       extra={"history_len": len(goal_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -101,7 +100,7 @@ def goal_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("Goal agent LLM call failed: %s: %s", type(e).__name__, e)
+        logger.error("Goal agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
         # return error message in goal_messages & goal_response
         err = (
             "I ran into an issue computing your projection. "
@@ -119,11 +118,11 @@ def goal_agent_node(state: FinnieState) -> dict:
     update: dict = {"goal_messages": [response]}
 
     if has_tools:
-        logger.info("Goal agent requested: %d tool call(s)", len(response.tool_calls))
+        logger.info("Goal agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
     else:
         # If response is plain text → update goal_messages AND set goal_response; the conditional edge will route to synthesizer_node
         update["goal_response"] = response.content or ""
-        logger.info("Goal agent: produced final answer | len=%d", len(update["goal_response"]))
+        logger.info("Goal agent: produced final answer", extra={"response_len": len(update["goal_response"])})
 
     return update
 

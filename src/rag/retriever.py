@@ -36,7 +36,7 @@ def kb_search(query: str, category: str | None = None, top_k: int = 5) -> list[d
         A list of dicts with keys: text, source_url, source_name, category, relevance.
         Returns [] on failure or no matches.
     """
-    logger.info("kb_search: q=%r category=%s k=%d", query[:80], category, top_k)
+    logger.info("kb_search called", extra={"query": query[:80], "category": category, "top_k": top_k})
 
     where = {"category": category} if category else None
 
@@ -45,7 +45,7 @@ def kb_search(query: str, category: str | None = None, top_k: int = 5) -> list[d
             query=query, k=top_k, filter=where,
         )
     except Exception as e:
-        logger.error("kb_search failed: %s: %s", type(e).__name__, e)
+        logger.error("kb_search failed", extra={"error_type": type(e).__name__, "error": str(e)})
         return []
 
     return [

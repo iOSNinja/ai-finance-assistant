@@ -59,7 +59,7 @@ def finance_qa_search(
           - relevance:   similarity score in [0.0, 1.0]; higher is more relevant
         Returns [] if retrieval fails or no chunks match.
     """
-    logger.info("KB search: q=%r category=%s k=%d", query[:80], category, top_k)
+    logger.info("KB search called", extra={"query": query[:80], "category": category, "top_k": top_k})
 
     # apply category filter for Chroma metadata if available
     where = {"category": category} if category else None
@@ -71,11 +71,11 @@ def finance_qa_search(
             filter=where,
         )
     except Exception as e:
-        logger.error("KB search failed: %s: %s", type(e).__name__, e)
+        logger.error("KB search failed", extra={"error_type": type(e).__name__, "error": str(e)})
         return []
     
     if not results:
-        logger.warning("KB search returned no results for query: %r", query[:80])
+        logger.warning("KB search returned no results", extra={"query": query[:80]})
         return []
     
     # return as a list of custom dicts
@@ -89,7 +89,7 @@ def finance_qa_search(
             "relevance": round(float(score), 4),
         })
 
-    logger.info("KB search: returned %d chunks", len(output))
+    logger.info("KB search returned results", extra={"chunk_count": len(output)})
     return output
 
 # Convenient list for binding to the LLM / building ToolNodes

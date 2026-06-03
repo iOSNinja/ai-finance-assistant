@@ -70,8 +70,8 @@ def tax_agent_node(state: FinnieState) -> dict:
     if loop_cnt >= MAX_AGENT_ITERATIONS:
         # return fallback message in tax_messages & tax_response
         logger.warning(
-            "Tax agent hit MAX_AGENT_ITERATIONS=%d - forcing fallback",
-            MAX_AGENT_ITERATIONS
+            "Tax agent hit MAX_AGENT_ITERATIONS - forcing fallback",
+            extra={"max_iterations": MAX_AGENT_ITERATIONS}
         )
 
         fallback = (
@@ -86,9 +86,8 @@ def tax_agent_node(state: FinnieState) -> dict:
         }
    
     logger.info(
-       "Tax agent: invoking LLM | history_len=%d, loop_cnt=%d",
-       len(tax_msgs),
-       loop_cnt
+       "Tax agent: invoking LLM",
+       extra={"history_len": len(tax_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -101,7 +100,7 @@ def tax_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("Tax agent LLM call failed: %s: %s", type(e).__name__, e)
+        logger.error("Tax agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
         # return error message in tax_messages & tax_response
         err = (
             "I ran into an issue answering your tax question. Please retry or rephrase your question.",
@@ -118,11 +117,11 @@ def tax_agent_node(state: FinnieState) -> dict:
     update: dict = {"tax_messages": [response]}
 
     if has_tools:
-        logger.info("Tax agent requested: %d tool call(s)", len(response.tool_calls))
+        logger.info("Tax agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
     else:
         # If response is plain text → update tax_messages AND set tax_response; the conditional edge will route to synthesizer_node
         update["tax_response"] = response.content or ""
-        logger.info("Tax agent produced final answer | len=%d", len(update["tax_response"]))
+        logger.info("Tax agent produced final answer", extra={"response_len": len(update["tax_response"])})
 
     return update
 

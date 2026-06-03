@@ -39,7 +39,7 @@ def orchestrator_node(
     """Classify the query and fan out to one or more agents."""
 
     query = state["user_query"]
-    logger.info("Routing query: %s", query[:60])
+    logger.info("Routing query", extra={"query_preview": query[:60]})
 
     # Retrieves the last 6 messages from conversation history (for context).
     history = state.get("messages", [])[-6:] 
@@ -54,7 +54,7 @@ def orchestrator_node(
         },
     )
 
-    logger.info("Agents: %s | Reason: %s", decision.agents, decision.reasoning)
+    logger.info("Routing decision made", extra={"agents": decision.agents, "reasoning": decision.reasoning})
 
     clean_state = {
         **state,
