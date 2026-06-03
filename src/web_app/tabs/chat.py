@@ -46,7 +46,7 @@ def _handle_query(user_query: str) -> None:
     with st.chat_message("assistant", avatar=FINNIE_AVATAR):
         with st.spinner("Researching..."):
             try:
-                response = assistant.ask(user_query)
+                response = assistant.ask(user_query, surface="streamlit")
             except Exception as e:
                 logger.exception("Graph invocation failed in chat tab")
                 response = (

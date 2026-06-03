@@ -39,6 +39,15 @@ EMBEDDING_MODEL = _get("OPENAI_EMBEDDING_MODEL", ("llm", "embedding_model"))
 RAG_CONFIG = _config.get("rag", {})
 MARKET_CONFIG = _config.get("market", {})
 NEWS_CONFIG = _config.get("news", {})
+LANGSMITH_CONFIG = _config.get("langsmith", {})
+
+# If the user has set the tracing env var, ensure project name is also set.
+# Defaults to the value from config.yaml.
+if os.getenv("LANGCHAIN_TRACING_V2", "").lower() == "true":
+    if not os.getenv("LANGCHAIN_PROJECT"):
+        os.environ["LANGCHAIN_PROJECT"] = LANGSMITH_CONFIG.get(
+            "project", "finnie-ai-finance-assistant"
+        )
 
 # Initializations
 openai_client = OpenAI(api_key=OPENAI_API_KEY)

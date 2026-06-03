@@ -34,10 +34,18 @@ class FinnieAIFinanceAssistant:
         self.thread_id = str(uuid.uuid4())
         logger.info("New session | thread_id=%s", self.thread_id[:8])
 
-    def ask(self, query: str) -> str:
+    def ask(self, query: str, surface: str = "cli") -> str:
         """Run one query end-to-end through the graph and return the final answer."""
 
-        config = {"configurable": {"thread_id": self.thread_id}}
+        config = {
+            "configurable": {"thread_id": self.thread_id},
+            "tags": ["env:dev", f"surface:{surface}", "version:v1"],
+            "metadata": {
+                "thread_id": self.thread_id[:8],
+                "user_query_length": len(query),
+            },
+            "run_name": f"finnie.query: {query[:60]}" # sets the title of the top-level trace in the dashboard. Without it, traces all look like LangGraph.
+        }
         # Reset per-turn buffers so previous-turn state doesn't leak in
         initial_state = {
             "user_query": query,

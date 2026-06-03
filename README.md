@@ -262,12 +262,14 @@ ai-finance-assistant/
 
 This section grows as each phase lands. Each layer is built **into** the system, not bolted on later — observability, evals, guardrails, and cost discipline from day one.
 
-### 1. Observability via LangSmith 🚧 *In active development*
+### 1. Observability via LangSmith ✅ Live
 
-- Auto-traced LangGraph + LangChain calls (no code changes)
-- Per-agent tagging for filtering in the dashboard
-- Production sampling at 10–20% to stay within free-tier
-- Custom metadata (model, chunk_size, route taken) per trace
+- Auto-traced LangGraph + LangChain calls (zero code changes via three env vars)
+- Per-agent tagging for filtering in the dashboard (`env`, `surface`, `version`)
+- Custom metadata (thread_id, query length) on every trace
+- Named runs (`finnie.query: <query>`) for instant scanning
+
+**Outcome:** open any trace in LangSmith → tree view of orchestrator → routing decision → every agent's tool calls → every LLM call. Root-cause analysis in under 2 minutes.
 
 **Target outcome:** open any failed query in LangSmith, see the routing decision + every tool call + every LLM call in a tree view. Root-cause analysis in under 2 minutes.
 

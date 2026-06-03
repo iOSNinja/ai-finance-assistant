@@ -51,15 +51,18 @@ def render() -> None:
 
     st.markdown("")
 
-    # Pending-value pattern: popular-topic buttons set this, widget reads it on rerun
-    if "_kb_pending_query" not in st.session_state:
-        st.session_state._kb_pending_query = ""
+    # ── Apply pending query (set by a popular-topic button) BEFORE widgets render.
+    # Must happen here — once st.text_input(key="kb_query") instantiates the widget,
+    # Streamlit forbids writes to st.session_state["kb_query"].
+    if st.session_state.get("_kb_pending_query"):
+        st.session_state["kb_query"] = st.session_state["_kb_pending_query"]
+        st.session_state["_kb_pending_query"] = ""
 
+    # Search controls — note: NO `value=` arg; session_state IS the value
     col_q, col_cat = st.columns([3, 1])
     with col_q:
         query = st.text_input(
             "Search the KB",
-            value=st.session_state._kb_pending_query,
             placeholder="e.g., diversification, compound interest, ETFs",
             key="kb_query",
             label_visibility="collapsed",
@@ -69,6 +72,7 @@ def render() -> None:
             "Category", CATEGORIES, label_visibility="collapsed"
         )
 
+    # Popular-topic chips — set pending and rerun; the block above will apply on next run
     st.markdown(
         '<div class="section-eyebrow" style="margin-top:1rem;">Popular topics</div>',
         unsafe_allow_html=True,
@@ -76,7 +80,7 @@ def render() -> None:
     cols = st.columns(3)
     for i, (icon, topic) in enumerate(POPULAR_TOPICS):
         if cols[i % 3].button(f"{icon}  {topic}", use_container_width=True, key=f"pop_{i}"):
-            st.session_state._kb_pending_query = topic
+            st.session_state["_kb_pending_query"] = topic
             st.rerun()
 
     if not query:
