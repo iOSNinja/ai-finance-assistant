@@ -24,6 +24,9 @@ from tests.eval.datasets import (
     ROUTING_DATASET_NAME,
     ROUTING_EXAMPLES,
     ensure_routing_dataset,
+    ROUTING_DATASET_NAME_V2,
+    ROUTING_EXAMPLES_V2,
+    ensure_routing_dataset_v2,
 )
 from tests.eval.evaluators import (
     routing_accuracy,
@@ -42,6 +45,12 @@ SUITES: dict[str, dict] = {
         "dataset_name": ROUTING_DATASET_NAME,
         "examples":     ROUTING_EXAMPLES,
         "ensure_fn":    ensure_routing_dataset,
+        "evaluators":   [routing_accuracy, routing_precision, routing_recall],
+    },
+    "routing-adversarial": {  # NEW stress suite
+        "dataset_name": ROUTING_DATASET_NAME_V2,
+        "examples":     ROUTING_EXAMPLES_V2,
+        "ensure_fn":    ensure_routing_dataset_v2,
         "evaluators":   [routing_accuracy, routing_precision, routing_recall],
     },
 }
