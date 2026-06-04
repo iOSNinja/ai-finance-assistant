@@ -35,6 +35,7 @@ if not OPENAI_API_KEY:
 
 # Settings
 MODEL = _get("OPENAI_MODEL", ("llm", "model"))
+JUDEG_MODEL = _get("OPENAI_JUDGE_MODEL", ("llm", "judge_model"), default="gpt-4o")
 EMBEDDING_MODEL = _get("OPENAI_EMBEDDING_MODEL", ("llm", "embedding_model"))
 RAG_CONFIG = _config.get("rag", {})
 MARKET_CONFIG = _config.get("market", {})
@@ -52,4 +53,5 @@ if os.getenv("LANGCHAIN_TRACING_V2", "").lower() == "true":
 # Initializations
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
 llm = ChatOpenAI(model=MODEL, temperature=0.2)
+judge_llm = ChatOpenAI(model=JUDEG_MODEL, temperature=0)
 embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
