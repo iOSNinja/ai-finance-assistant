@@ -38,7 +38,7 @@ def routing_accuracy(run: Any, example: Any) -> dict:
     # precision-> Of the agents fired, what fraction were correct?
     precision = len(intersect) / len(actual) if actual else 0.0 
     # recall -> Of the agents that should have fired, what fraction did?
-    recall = len(intersect / len(expected)) #
+    recall = len(intersect) / len(expected)
     # harmonic mean of precision & recall
     f1 = (2 * precision * recall) / (precision + recall) if (precision + recall) else 0.0
 

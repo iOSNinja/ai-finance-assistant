@@ -4,7 +4,7 @@ app:
   version: "0.0.1"
 
 llm:
-  model: "gpt-4o-mini",             # production model - what users hit
+  model: "gpt-4o-mini"              # production model - what users hit
   judge_model: "gpt-4o"             # evaluator-only - stronger, used in tests
   embedding_model: "text-embedding-3-small"
 

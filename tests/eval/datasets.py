@@ -1,11 +1,18 @@
 """
 tests/eval/datasets.py - Golden datasets for evaluating Finnie's quality.
 
+Each evaluation suite gets its own LangSmith dataset so experiments never collide.
+Datasets are lazily created on first use via ensure_*_dataset() functions.
 """
 
-# ROUTING DATASET
-ROUTING_DATASET = [
-    # -- Singel-agent cases: --
+from langsmith import Client
+
+# Dataset names — each suite has its own so experiments stay isolated
+ROUTING_DATASET_NAME = "finnie-routing-eval"
+
+# Raw evaluation examples
+ROUTING_EXAMPLES = [
+    # -- Single-agent cases --
     {"inputs": {"query": "What is an ETF?"},
      "outputs": {"agents": ["qa_agent"]},
      "tags": ["single", "qa"]},
@@ -58,3 +65,37 @@ ROUTING_DATASET = [
      "outputs": {"agents": ["qa_agent"]},
      "tags": ["off_topic"]},
 ]
+
+# LangSmith dataset management
+def _ensure_dataset(dataset_name, examples, description, client=None):
+    """Create a LangSmith dataset if it doesn't already exist.
+
+    Per-example `tags` (e.g. ["single","qa"]) are attached as metadata so the
+    LangSmith UI can slice eval results by category. Empty if no tags provided.
+    """
+    if client is None:
+        client = Client()
+    existing = list(client.list_datasets(dataset_name=dataset_name))
+    if existing:
+        print(f"Dataset '{dataset_name}' already exists in LangSmith.")
+        return existing[0]
+    dataset = client.create_dataset(dataset_name=dataset_name, description=description)
+    client.create_examples(
+        inputs=[e["inputs"] for e in examples],
+        outputs=[e["outputs"] for e in examples],
+        metadata=[{"tags": e.get("tags", [])} for e in examples],
+        dataset_id=dataset.id,
+    )
+    print(f"Created dataset '{dataset_name}' with {len(examples)} examples.")
+    return dataset
+
+
+def ensure_routing_dataset(client=None):
+    """Ensure the routing evaluation dataset exists in LangSmith."""
+    return _ensure_dataset(
+        ROUTING_DATASET_NAME,
+        ROUTING_EXAMPLES,
+        "Labeled evaluation examples for Finnie's routing agent. "
+        "Tests correct agent selection for single-agent, multi-agent, and edge cases.",
+        client
+    )
