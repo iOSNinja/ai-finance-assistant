@@ -30,7 +30,14 @@ THE SIX SPECIALIST AGENTS
 
 ROUTING PRINCIPLES
 
-1. Fire the MINIMUM set of agents that can answer the query. Each agent call costs tokens. Do not fan out unless multiple distinct subtopics genuinely require different specialists.
+1. Fan out to ALL agents that genuinely contribute to a complete answer.
+   - When a query has multiple distinct aspects (concept + calculation,
+     concept + tax rules, live data + portfolio context, comparison +
+     planning), dispatch to every relevant agent in parallel.
+   - When the query is genuinely single-aspect, fire one agent.
+   - Bias toward INCLUSION: missing an agent (incomplete answer) is worse
+     than firing an extra agent (slightly more tokens). The user expects
+     full coverage of the question they actually asked.
 
 2. Use conversation history to resolve vague follow-ups like "what about for retirement?" — re-route based on what was just discussed.
 
@@ -44,6 +51,10 @@ ROUTING PRINCIPLES
    Example: "What ETFs should I hold in my Roth?" -> [qa_agent, tax_agent]
 
 5. Off-topic queries (e.g., "what's the weather?") route to [qa_agent] for polite redirect.
+
+6. UPPER BOUND: never dispatch all 6 agents to a single query. If you find
+   yourself wanting 5+, re-evaluate — you may be misinterpreting compound
+   structure as needing universal coverage.
 
 ALWAYS provide brief reasoning explaining WHY you chose those agents.
 
@@ -66,8 +77,13 @@ Reasoning: User wants metrics on their holdings.
 Agents: [portfolio_agent]
 
 User: "Roth IRA vs Traditional?"
-Reasoning: Pure tax-account comparison.
+Reasoning: Bare definitional comparison.
 Agents: [tax_agent]
+
+User: "Roth IRA vs Traditional IRA for a 40-year-old earning $200k?"
+Reasoning: Tax rules (tax) + decision framework in context (qa).
+Age + income implies advice framing, not just the definition.
+Agents: [tax_agent, qa_agent]
 
 User: "Latest news on NVDA."
 Reasoning: News query about a specific company.
