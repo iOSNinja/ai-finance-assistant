@@ -6,12 +6,39 @@ that evaluators need to score against expected values.
 """
 
 import uuid
+import json
 from typing import Any
 
 from src.utils.logger import setup_logger
 from src.workflow.graph import build_graph
+from langchain_core.messages import ToolMessage
 
 logger = setup_logger(__name__)
+
+def _extract_chunks_from_messages(messages: list) -> list[dict]:
+    """Walk an agent's messages, find RAG-tool results, parse chunks.
+
+    LangGraph stores tool results as ToolMessage instances whose .content
+    is the JSON-serialized return value of the tool. Both finance_qa_search
+    and tax_education_search return list[dict] — we deserialize and flatten.
+    """
+    chunks = []
+    for msg in (messages or []):
+        if not isinstance(msg, ToolMessage):
+            continue
+        tool_name = getattr(msg, "name", "")
+        if tool_name not in ("finance_qa_search", "tax_education_search"):
+            continue
+        # Tool result is either already a list/dict OR a JSON string
+        try:
+            content = msg.content
+            parsed = json.loads(content) if isinstance(content, str) else content
+            if isinstance(parsed, list):
+                chunks.extend(parsed)
+        except (json.JSONDecodeError, TypeError):
+            # Malformed tool message — skip silently, don't crash the eval
+            continue
+    return chunks
 
 def _build_initial_state(query: str) -> dict:
     """Reset all per-agent buffers. Same shape as main.py's ask() does."""
@@ -73,8 +100,15 @@ class FinnieEvalWrapper:
                 "portfolio_response": "",
                 "market_response":    "",
                 "news_response":      "",
+                "chunks":             "",
+                "chunk_count":        "",
                 "error":              True,
             }
+        
+        # extract chunks from each agent's tool messages
+        all_chunks = []
+        for msg_key in ("qa_messages", "tax_messages"):
+            all_chunks.extend(_extract_chunks_from_messages(final.get(msg_key, [])))
 
         # Return the fields evaluators care about
         return {
@@ -86,5 +120,7 @@ class FinnieEvalWrapper:
             "portfolio_response": final.get("portfolio_response", ""),
             "market_response":    final.get("market_response", ""),
             "news_response":      final.get("news_response", ""),
+            "chunks":             all_chunks,
+            "chunk_count":        len(all_chunks),
             "is_finance_query":   final.get("is_finance_query", True),
         }

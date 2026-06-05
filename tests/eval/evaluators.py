@@ -3,8 +3,12 @@ tests/eval/evaluators.py - Evaluators that score Finnie's quality
 """
 
 from typing import Any
+import json
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
 
 from src.utils.logger import setup_logger
+from src.core.config import judge_llm
 
 logger = setup_logger(__name__)
 
@@ -143,3 +147,119 @@ def hit_at_1(run: Any, example: Any) -> dict:
     score = 1.0 if top_source in gold else 0.0
     return {"key": "hit_at_1", "score": score,
             "comment": f"top_source={top_source}"}
+
+
+# Generation evaluators (LLM-as-judge + keyword check)
+# Judge model — stronger than the production model we're judging.
+# DO NOT use the same model as the one generating, or it would introduce bias. gpt-4o-mini generates & gpt-4o judges.
+
+_judge_llm = judge_llm
+
+# Faithfulness — "is the answer grounded in the retrieved chunks?"
+FAITHFULNESS_PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "You are an expert evaluator. Assess whether the AI's answer is faithful "
+     "to the provided retrieval context chunks.\n\n"
+     "Score 1.0 = fully faithful: every factual claim is supported by the context\n"
+     "Score 0.5 = partially faithful: some claims unsupported but core is grounded\n"
+     "Score 0.0 = not faithful: substantial claims contradict or are absent from context\n\n"
+     "Focus on factual claims (numbers, definitions, mechanisms). Ignore stylistic "
+     "differences and well-known general financial concepts. If context is empty "
+     "or marginal, score 0.5 if the answer admits insufficient info, else 0.0.\n\n"
+     'Respond with ONLY this JSON: {{"score": <float>, "reason": "<one sentence>"}}'),
+    ("human",
+     "Context:\n{context}\n\nQuestion: {question}\n\nAnswer to evaluate:\n{answer}"),
+])
+
+def faithfulness_evaluator(run: Any, example: Any) -> dict:
+    """LLM-as-judge: are the answer's claims supported by retrieved chunks?"""
+    answer = run.outputs.get("final_answer", "")
+    chunks = run.outputs.get("chunks", [])
+    question = example.inputs.get("query", "")
+
+    if not answer:
+        return {"key": "faithfulness", "score": 0.0, "comment": "no answer generated"}
+
+    context = "\n\n".join(
+        f"[{c.get('source_url', 'unknown')}] {c.get('text', '')[:500]}"
+        for c in chunks
+    ) or "(no context retrieved)"
+
+    messages = FAITHFULNESS_PROMPT.format_messages(
+        context=context[:4000],  # cap to control judge cost
+        question=question,
+        answer=answer,
+    )
+    try:
+        response = _judge_llm.invoke(messages).content.strip()
+        start, end = response.find("{"), response.rfind("}") + 1
+        parsed = json.loads(response[start:end])
+        return {
+            "key": "faithfulness",
+            "score": float(parsed.get("score", 0.5)),
+            "comment": parsed.get("reason", "")[:200],
+        }
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        logger.warning("Faithfulness judge parse failed: %s", e)
+        return {"key": "faithfulness", "score": 0.5, "comment": "judge parse failed"}
+
+
+# Correctness — "does the answer match the reference answer?"
+CORRECTNESS_PROMPT = ChatPromptTemplate.from_messages([
+    ("system",
+     "You are an expert evaluator. Compare the AI's answer to the expected "
+     "reference answer for factual accuracy.\n\n"
+     "Score 1.0 = all key facts correct, no critical omissions\n"
+     "Score 0.5 = partially correct OR missing important facts\n"
+     "Score 0.0 = key facts wrong, contradicts reference, or fundamentally off-topic\n\n"
+     "Focus on factual accuracy, not exact wording or style. The AI's answer "
+     "may include extra correct info; that's fine. Only penalize wrong facts "
+     "or missing critical ones.\n\n"
+     'Respond with ONLY this JSON: {{"score": <float>, "reason": "<one sentence>"}}'),
+    ("human",
+     "Question: {question}\n\nExpected answer:\n{expected}\n\n"
+     "AI's actual answer:\n{actual}"),
+])
+
+def correctness_evaluator(run: Any, example: Any) -> dict:
+    """LLM-as-judge: does the answer factually match the reference?"""
+    actual = run.outputs.get("final_answer", "")
+    expected = example.outputs.get("reference_answer", "")
+    question = example.inputs.get("query", "")
+
+    if not actual or not expected:
+        return {"key": "correctness", "score": 0.0, "comment": "missing answer or reference"}
+
+    messages = CORRECTNESS_PROMPT.format_messages(
+        question=question, expected=expected, actual=actual
+    )
+    try:
+        response = _judge_llm.invoke(messages).content.strip()
+        start, end = response.find("{"), response.rfind("}") + 1
+        parsed = json.loads(response[start:end])
+        return {
+            "key": "correctness",
+            "score": float(parsed.get("score", 0.5)),
+            "comment": parsed.get("reason", "")[:200],
+        }
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        logger.warning("Correctness judge parse failed: %s", e)
+        return {"key": "correctness", "score": 0.5, "comment": "judge parse failed"}
+
+
+# Keyword correctness — "does the answer include critical facts?"
+# Cheap substring check. Only scores examples with must_contain_keywords.
+def keyword_correctness(run: Any, example: Any) -> dict:
+    """Substring check: do critical keywords appear in the answer?"""
+    expected_keywords = example.outputs.get("must_contain_keywords", [])
+    if not expected_keywords:
+        return {"key": "keyword_correctness", "score": None}
+
+    answer = run.outputs.get("final_answer", "").lower()
+    hits = sum(1 for kw in expected_keywords if kw.lower() in answer)
+    score = hits / len(expected_keywords)
+    return {
+        "key": "keyword_correctness",
+        "score": score,
+        "comment": f"hit {hits}/{len(expected_keywords)} keywords: {expected_keywords}",
+    }

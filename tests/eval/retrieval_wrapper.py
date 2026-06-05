@@ -1,5 +1,5 @@
 """
-test/eval/retrieveal_wrapper.py - Calls RAG tools directly, bypassingthe LLM.
+test/eval/retrieveal_wrapper.py - Calls RAG tools directly, bypassing the LLM.
 
 """
 

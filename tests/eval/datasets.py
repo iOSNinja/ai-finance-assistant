@@ -408,3 +408,245 @@ def ensure_retrieval_dataset(client=None):
         "Categorized as easy/ambiguous/cross_domain/confusing/tax/negative — ",
         client,
     )
+
+# GENERATION EVAL - Faithfulness + Correctness
+# Same 18 queries as retrieval eval, augmented with reference_answer
+# and (optionally) must_contain_keywords.
+
+GENERATION_DATASET_NAME = "finnie-generation-eval-v1"
+GENERATION_EXAMPLES_V1 = [
+    # ─────────── EASY ───────────
+    {"inputs": {"query": "What is the Sharpe ratio?"},
+     "outputs": {
+         "reference_answer": (
+             "The Sharpe ratio measures risk-adjusted return — excess return per "
+             "unit of total risk (volatility). Computed as (portfolio return − "
+             "risk-free rate) / standard deviation. Higher is better. Above 1.0 "
+             "is generally considered good."
+         ),
+     },
+     "tags": ["easy", "qa"]},
+
+    {"inputs": {"query": "Explain the Trinity Study and the 4% rule"},
+     "outputs": {
+         "reference_answer": (
+             "The Trinity Study (1998) analyzed historical portfolio survival "
+             "rates and concluded that withdrawing 4% of an initial retirement "
+             "portfolio annually (inflation-adjusted) had a high probability of "
+             "lasting 30 years. This is the origin of the '4% rule' as a safe "
+             "withdrawal rate."
+         ),
+         "must_contain_keywords": ["4%", "30 years"],
+     },
+     "tags": ["easy", "qa", "goal_planning"]},
+
+    {"inputs": {"query": "What is the VIX index?"},
+     "outputs": {
+         "reference_answer": (
+             "The VIX (CBOE Volatility Index) measures the market's expected "
+             "30-day volatility of the S&P 500, derived from option prices. "
+             "Often called the 'fear gauge' — rises during stress, falls in calm."
+         ),
+         "must_contain_keywords": ["S&P 500"],
+     },
+     "tags": ["easy", "qa", "market_analysis"]},
+
+    {"inputs": {"query": "How does the Bogleheads three-fund portfolio work?"},
+     "outputs": {
+         "reference_answer": (
+             "The Bogleheads three-fund portfolio is a simple low-cost allocation "
+             "of three index funds: a total US stock market index, a total "
+             "international stock market index, and a total bond market index. "
+             "Provides broad diversification with low fees and minimal complexity."
+         ),
+     },
+     "tags": ["easy", "qa", "portfolio_management"]},
+
+    # ─────────── AMBIGUOUS ───────────
+    {"inputs": {"query": "What is an ETF?"},
+     "outputs": {
+         "reference_answer": (
+             "An ETF (Exchange-Traded Fund) is an investment fund holding a "
+             "basket of securities (stocks, bonds, etc.) that trades on stock "
+             "exchanges like an individual stock. ETFs typically track an index, "
+             "offer intraday liquidity, and have lower expense ratios than "
+             "comparable mutual funds."
+         ),
+     },
+     "tags": ["ambiguous", "qa", "investing_basics"]},
+
+    {"inputs": {"query": "How does compound interest work?"},
+     "outputs": {
+         "reference_answer": (
+             "Compound interest is interest earned on both the original principal "
+             "AND on previously-accumulated interest. Over time produces "
+             "exponential growth. Formula: A = P(1 + r/n)^(nt) where P = principal, "
+             "r = annual rate, n = compoundings per year, t = years."
+         ),
+     },
+     "tags": ["ambiguous", "qa", "investing_basics"]},
+
+    {"inputs": {"query": "What is asset allocation?"},
+     "outputs": {
+         "reference_answer": (
+             "Asset allocation is the strategy of dividing a portfolio among "
+             "asset categories (stocks, bonds, cash) based on goals, risk "
+             "tolerance, and time horizon. Considered one of the most important "
+             "determinants of long-term portfolio returns."
+         ),
+     },
+     "tags": ["ambiguous", "qa", "portfolio_management"]},
+
+    {"inputs": {"query": "Explain a Roth IRA"},
+     "outputs": {
+         "reference_answer": (
+             "A Roth IRA is an individual retirement account funded with "
+             "after-tax dollars. Contributions are not tax-deductible, but "
+             "qualified withdrawals in retirement (after age 59½ and meeting "
+             "the 5-year holding period) are tax-free. Has income limits for "
+             "direct contributions."
+         ),
+         "must_contain_keywords": ["after-tax", "tax-free"],
+     },
+     "tags": ["ambiguous", "tax"]},
+
+    # ─────────── CROSS-DOMAIN ───────────
+    {"inputs": {"query": "How are dividends taxed?"},
+     "outputs": {
+         "reference_answer": (
+             "Dividends are taxed as either qualified or ordinary. Qualified "
+             "dividends (meeting IRS holding-period requirements) are taxed at "
+             "long-term capital gains rates (0%, 15%, or 20% based on income). "
+             "Ordinary (non-qualified) dividends are taxed at regular income "
+             "tax rates."
+         ),
+         "must_contain_keywords": ["qualified", "ordinary"],
+     },
+     "tags": ["cross_domain", "tax"]},
+
+    {"inputs": {"query": "What is the time value of money?"},
+     "outputs": {
+         "reference_answer": (
+             "Time value of money is the principle that a dollar today is worth "
+             "more than a dollar in the future, because money now can be invested "
+             "to earn returns. Core concepts: present value (future cash "
+             "discounted to today), future value (present cash grown forward), "
+             "and the discount rate that links them."
+         ),
+     },
+     "tags": ["cross_domain", "qa", "goal_planning"]},
+
+    # ─────────── CONFUSING ───────────
+    {"inputs": {"query": "What is the P/E ratio?"},
+     "outputs": {
+         "reference_answer": (
+             "The P/E ratio (Price-to-Earnings) is a valuation metric: share "
+             "price divided by earnings per share (EPS). Shows how much investors "
+             "pay per dollar of earnings. High P/E suggests growth expectations "
+             "or overvaluation; low P/E may indicate value or distress."
+         ),
+         "must_contain_keywords": ["earnings per share"],
+     },
+     "tags": ["confusing", "qa", "market_analysis"]},
+
+    {"inputs": {"query": "What is a 529 plan?"},
+     "outputs": {
+         "reference_answer": (
+             "A 529 plan is a tax-advantaged savings account for education "
+             "expenses. Contributions grow tax-free, and withdrawals for "
+             "qualified education expenses (tuition, books, room/board) are "
+             "federal income tax-free. Many states offer additional state tax "
+             "deductions for contributions."
+         ),
+         "must_contain_keywords": ["education", "tax-free"],
+     },
+     "tags": ["confusing", "tax"]},
+
+    {"inputs": {"query": "Explain market volatility"},
+     "outputs": {
+         "reference_answer": (
+             "Market volatility is the rate and magnitude of price fluctuations "
+             "in a market. Measured by standard deviation of returns or via "
+             "indicators like the VIX. Higher volatility means larger price "
+             "swings (up AND down). Often associated with uncertainty or stress."
+         ),
+     },
+     "tags": ["confusing", "qa", "market_analysis"]},
+
+    {"inputs": {"query": "What is portfolio rebalancing?"},
+     "outputs": {
+         "reference_answer": (
+             "Portfolio rebalancing is realigning the weights of assets in a "
+             "portfolio back to a target allocation. Typically done periodically "
+             "(e.g., annually) or when allocations drift beyond thresholds. "
+             "Enforces a 'sell high, buy low' discipline and maintains intended risk."
+         ),
+     },
+     "tags": ["confusing", "qa", "portfolio_management"]},
+
+    {"inputs": {"query": "What does the SEC do?"},
+     "outputs": {
+         "reference_answer": (
+             "The SEC (Securities and Exchange Commission) is the U.S. federal "
+             "agency that regulates securities markets, enforces federal "
+             "securities laws, oversees public companies' disclosures, registers "
+             "brokers and investment advisers, and protects investors from fraud."
+         ),
+     },
+     "tags": ["confusing", "qa", "investing_basics"]},
+
+    # ─────────── TAX-SPECIFIC ───────────
+    {"inputs": {"query": "401(k) contribution limits"},
+     "outputs": {
+         "reference_answer": (
+             "The 401(k) employee elective deferral limit for 2024 is $23,000. "
+             "Workers aged 50+ can make additional catch-up contributions of "
+             "$7,500, bringing the total to $30,500. Combined employer + employee "
+             "contributions are limited to $69,000 ($76,500 with catch-up). "
+             "Limits are adjusted annually for inflation."
+         ),
+         "must_contain_keywords": ["$23,000", "catch-up"],
+     },
+     "tags": ["tax", "irs"]},
+
+    {"inputs": {"query": "Capital gains tax on long-term stock sales"},
+     "outputs": {
+         "reference_answer": (
+             "Long-term capital gains (assets held more than 1 year) are taxed "
+             "at preferential rates of 0%, 15%, or 20% based on taxable income. "
+             "Short-term capital gains (1 year or less) are taxed at ordinary "
+             "income rates. The Net Investment Income Tax of 3.8% may also apply "
+             "to high earners."
+         ),
+         "must_contain_keywords": ["long-term", "ordinary income"],
+     },
+     "tags": ["tax", "irs"]},
+
+    {"inputs": {"query": "Roth vs Traditional IRA differences"},
+     "outputs": {
+         "reference_answer": (
+             "Traditional IRA: contributions may be tax-deductible now; "
+             "withdrawals in retirement are taxed as ordinary income. Roth IRA: "
+             "contributions are after-tax dollars; qualified withdrawals in "
+             "retirement are tax-free. Roth has income limits for direct "
+             "contributions; Traditional does not (though deduction limits apply). "
+             "RMDs apply to Traditional but not Roth during the owner's lifetime."
+         ),
+         "must_contain_keywords": ["after-tax", "tax-deductible"],
+     },
+     "tags": ["tax", "ambiguous"]},
+]
+
+
+def ensure_generation_dataset(client=None):
+    """Ensure the generation evaluation dataset exists in LangSmith."""
+    return _ensure_dataset(
+        GENERATION_DATASET_NAME,
+        GENERATION_EXAMPLES_V1,
+        "Generation quality eval for Finnie (Phase 1b.3). Each example has a "
+        "reference_answer for correctness scoring; specific-fact queries also "
+        "have must_contain_keywords for omission detection. Faithfulness is "
+        "scored vs the retrieved chunks (no gold needed). Uses the full "
+        "production agent via FinnieEvalWrapper.",
+        client,
+    )

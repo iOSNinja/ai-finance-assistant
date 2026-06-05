@@ -30,15 +30,24 @@ from tests.eval.datasets import (
     RETRIEVAL_DATASET_NAME,
     RETRIEVAL_EXAMPLES_V1,
     ensure_retrieval_dataset,
+    GENERATION_DATASET_NAME,
+    GENERATION_EXAMPLES_V1,
+    ensure_generation_dataset,
 )
 
 from tests.eval.evaluators import (
+    # Routing evals
     routing_accuracy,
     routing_precision,
     routing_recall,
+    # Retrieval evals
     mrr_at_5,
     recall_at_5,
     hit_at_1,
+    # Generational evals
+    faithfulness_evaluator,
+    correctness_evaluator,
+    keyword_correctness,
 )
 from tests.eval.wrapper import FinnieEvalWrapper
 from tests.eval.retrieval_wrapper import FinnieRetrievalWrapper
@@ -70,6 +79,13 @@ SUITES: dict[str, dict] = {
         "ensure_fn":    ensure_retrieval_dataset,
         "evaluators":   [mrr_at_5, recall_at_5, hit_at_1],
         "wrapper_cls":  FinnieRetrievalWrapper, 
+    },
+    "generation":{
+        "dataset_name": GENERATION_DATASET_NAME,
+        "examples":     GENERATION_EXAMPLES_V1,
+        "ensure_fn":    ensure_generation_dataset,
+        "evaluators":   [faithfulness_evaluator, correctness_evaluator, keyword_correctness],
+        "wrapper_cls":  FinnieEvalWrapper,  # reusing the full-graph wrapper, no new wrapper needed for this!
     }
 }
 

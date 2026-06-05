@@ -274,19 +274,40 @@ This section grows as each phase lands. Each layer is built **into** the system,
 
 **Outcome:** open any trace → see the routing decision + every tool call + every LLM call in a tree view. Click any log line → jump to the trace via `trace_id`. Root-cause analysis in under 2 minutes.
 
-### 2. Evaluation Framework 🚧 *In active development*
+### 2. Evaluation Framework ✅ v1 Complete
 
-Five-layer evaluation:
+Four eval suites in `tests/eval/`, all running on **LangSmith**. Each tests a different layer of the system in isolation, so failures localize to the right component.
 
-| Layer | Metric | Where it fires |
-|---|---|---|
-| Routing | Routing accuracy | Orchestrator → did it pick the right agent(s)? |
-| Retrieval | MRR / Precision@K / Recall@K | RAG agents (Q&A, Tax) |
-| Faithfulness | LLM-as-judge | Did the answer stay grounded in the retrieved chunks? |
-| Correctness | LLM-as-judge + keyword | Did the answer match the curated reference? |
-| Quality | Custom (e.g., disclaimer present, sources cited) | All agents |
+| Suite | What it measures | How it's scored | Baseline |
+|---|---|---|---|
+| `routing` | Did the orchestrator pick the right agent(s) for an easy query? | Strict accuracy + precision/recall | **1.00 / 1.00 / 1.00** |
+| `routing-adversarial` | Same, but on 42 deliberately-hard queries (ambiguous, compound, prompt injections, typos) | Same | **0.75 / 0.95 / 0.87** |
+| `retrieval` | Did the RAG agents pull chunks from the right source documents? | MRR@5 / Recall@5 / Hit@1 | **0.86 / 0.94 / 0.78** |
+| `generation` | Are the final answers grounded, correct, and complete on specific facts? | Faithfulness (LLM-judge) + Correctness (LLM-judge) + Keyword presence | **0.72 / 0.82 / 0.89** |
 
-Evaluations run in LangSmith experiments with 3 repetitions per query for statistical stability. CI-gated via DeepEval.
+**Run any suite:**
+```bash
+uv run python -m tests.eval.run_eval <suite> --reps 3
+```
+
+#### How it's designed
+
+- **Adversarial datasets, not happy-path datasets.** Easy queries hide bugs. Each suite includes deliberately hard examples — ambiguous wording, compound questions, look-alike concepts, prompt injections, typos.
+- **No example leakage.** Failing eval queries are *not* copy-pasted into the orchestrator prompt as few-shot examples. Paraphrased twins teach the *pattern* without making the eval measure memorization.
+- **LLM-as-judge uses a different model than the generator.** `gpt-4o-mini` writes the answers; `gpt-4o` judges them. Using the same model for both biases scores upward.
+- **Each suite has its own wrapper.** Retrieval bypasses the LLM entirely (fast, free, deterministic). Routing/generation use the full production graph so we test the real system, not a parallel mock.
+
+#### What the eval surfaced?
+
+These are findings the eval framework *discovered* — not bugs I expected to find.
+
+**1. The "citation lie" pattern.** For queries like *"How does the Bogleheads three-fund portfolio work?"*, the retriever pulled chunks from the wrong Wikipedia pages (rank > 5 for the correct Bogleheads source). The LLM still produced a correct answer — but cited it to chunks that didn't actually support the claim. Correctness alone would have said "all good." **Faithfulness exposed it.** Without measuring both, this stays invisible.
+
+**2. Lexical capture in retrieval.** The embedding model can't always tell closely-related concepts apart. *"Compound interest"* pulled chunks from `Future_value`; *"portfolio rebalancing"* pulled chunks from `Asset_allocation`; *"Roth vs Traditional"* pulled chunks from the broader general-IRA page. Recall@5 = 0.94 means the right chunks are *usually* somewhere in the top 5 — just not at #1. Cross-encoder reranking is the standard fix, deferred until generation quality shows the bug actually hurts users.
+
+**3. KB staleness on time-sensitive data.** *"What are the 401(k) contribution limits?"* returned faithful answers grounded in 2023 IRS chunks — against a 2024 reference. The system worked correctly; the data was outdated. **RAG faithfulness ≠ factual currency.** Real fix is scheduled re-ingestion, not a prompt tweak.
+
+**4. Quantified the cost of a routing prompt fix.** The original orchestrator prompt said *"fire the minimum set of agents"* as a cost optimization. Inverting that to *"fire all that genuinely apply"* lifted routing recall +0.03 with precision unchanged — but added 24% to P50 latency (parallel fan-out widens the tail). Free wins are rare; this trade is defensible because completeness matters more than 1.2s of latency in an educational tool.
 
 ### 3. Guardrails 🚧 *In active development*
 
