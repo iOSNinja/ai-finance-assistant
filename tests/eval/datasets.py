@@ -257,3 +257,154 @@ def ensure_routing_dataset_v2(client=None):
         "Routing v2 — adversarial stress (ambiguous, distractors, "
         "compound, injections, typos, non-English)", client
     )
+
+
+# RETRIEVAL EVAL — MRR for RAG agents)
+RETRIEVAL_DATASET_NAME = "finnie-retrieval-eval-v1"
+
+# Each example:
+#   query             — what the user asks
+#   agent             — "qa" or "tax" (which RAG tool to call)
+#   category          — optional category filter for the qa tool (None = all)
+#   relevant_sources  — list of source URLs in the KB that correctly answer.
+#                       Multi-source list = ambiguity tolerance.
+RETRIEVAL_EXAMPLES_V1 = [
+    # ─────────── EASY: one source clearly dominates ───────────
+    {"inputs": {"query": "What is the Sharpe ratio?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Sharpe_ratio"
+     ]},
+     "tags": ["easy", "qa"]},
+
+    {"inputs": {"query": "Explain the Trinity Study and the 4% rule", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Trinity_study"
+     ]},
+     "tags": ["easy", "qa", "goal_planning"]},
+
+    {"inputs": {"query": "What is the VIX index?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/VIX"
+     ]},
+     "tags": ["easy", "qa", "market_analysis"]},
+
+    {"inputs": {"query": "How does the Bogleheads three-fund portfolio work?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://www.bogleheads.org/wiki/Three-fund_portfolio"
+     ]},
+     "tags": ["easy", "qa", "portfolio_management"]},
+
+    # ─────────── AMBIGUOUS: multiple sources reasonably answer ───────────
+    {"inputs": {"query": "What is an ETF?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Exchange-traded_fund",
+         "https://www.investor.gov/introduction-investing/investing-basics/investment-products/mutual-funds-and-exchange-traded-2"
+     ]},
+     "tags": ["ambiguous", "qa", "investing_basics"]},
+
+    {"inputs": {"query": "How does compound interest work?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Compound_interest",
+         "https://en.wikipedia.org/wiki/Time_value_of_money"
+     ]},
+     "tags": ["ambiguous", "qa", "investing_basics"]},
+
+    {"inputs": {"query": "What is asset allocation?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Asset_allocation",
+         "https://www.investor.gov/introduction-investing/getting-started/asset-allocation",
+         "https://www.bogleheads.org/wiki/Asset_allocation"
+     ]},
+     "tags": ["ambiguous", "qa", "portfolio_management"]},
+
+    {"inputs": {"query": "Explain a Roth IRA", "agent": "tax", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://www.irs.gov/retirement-plans/roth-iras",
+         "https://en.wikipedia.org/wiki/Roth_IRA"
+     ]},
+     "tags": ["ambiguous", "tax"]},
+
+    # ─────────── CROSS-DOMAIN: spans multiple knowledge categories ───────────
+    {"inputs": {"query": "How are dividends taxed?", "agent": "tax", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Capital_gains_tax",
+         "https://en.wikipedia.org/wiki/Dividend"
+     ]},
+     "tags": ["cross_domain", "tax"]},
+
+    {"inputs": {"query": "What is the time value of money?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Time_value_of_money",
+         "https://en.wikipedia.org/wiki/Future_value",
+         "https://en.wikipedia.org/wiki/Present_value"
+     ]},
+     "tags": ["cross_domain", "qa", "goal_planning"]},
+
+    # ─────────── CONFUSING: terms that could mislead the retriever ───────────
+    {"inputs": {"query": "What is the P/E ratio?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Price%E2%80%93earnings_ratio"
+     ]},
+     "tags": ["confusing", "qa", "market_analysis"]},  # might confuse with EPS
+
+    {"inputs": {"query": "What is a 529 plan?", "agent": "tax", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/529_plan"
+     ]},
+     "tags": ["confusing", "tax"]},  # might confuse with 401(k) due to numeric naming
+
+    {"inputs": {"query": "Explain market volatility", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Volatility_(finance)",
+         "https://en.wikipedia.org/wiki/VIX"
+     ]},
+     "tags": ["confusing", "qa", "market_analysis"]},
+
+    {"inputs": {"query": "What is portfolio rebalancing?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://en.wikipedia.org/wiki/Rebalancing_investments"
+     ]},
+     "tags": ["confusing", "qa", "portfolio_management"]},  # might confuse w/ DCA, asset allocation
+
+    {"inputs": {"query": "What does the SEC do?", "agent": "qa", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://www.investor.gov/introduction-investing/investing-basics/role-sec"
+     ]},
+     "tags": ["confusing", "qa", "investing_basics"]},
+
+    # ─────────── TAX-SPECIFIC ───────────
+    {"inputs": {"query": "401(k) contribution limits", "agent": "tax", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://www.irs.gov/retirement-plans/plan-participant-employee/retirement-topics-401k-and-profit-sharing-plan-contribution-limits",
+         "https://www.irs.gov/retirement-plans/401k-plans",
+         "https://en.wikipedia.org/wiki/401(k)"
+     ]},
+     "tags": ["tax", "irs"]},
+
+    {"inputs": {"query": "Capital gains tax on long-term stock sales", "agent": "tax", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://www.irs.gov/taxtopics/tc409",
+         "https://en.wikipedia.org/wiki/Capital_gains_tax"
+     ]},
+     "tags": ["tax", "irs"]},
+
+    {"inputs": {"query": "Roth vs Traditional IRA differences", "agent": "tax", "category": None},
+     "outputs": {"relevant_sources": [
+         "https://www.irs.gov/retirement-plans/traditional-and-roth-iras",
+         "https://en.wikipedia.org/wiki/Roth_IRA",
+         "https://en.wikipedia.org/wiki/Traditional_IRA"
+     ]},
+     "tags": ["tax", "ambiguous"]},
+]
+
+
+def ensure_retrieval_dataset(client=None):
+    """Ensure the retrieval evaluation dataset exists in LangSmith."""
+    return _ensure_dataset(
+        RETRIEVAL_DATASET_NAME,
+        RETRIEVAL_EXAMPLES_V1,
+        "Retrieval quality eval for Finnie's QA and Tax RAG agents. "
+        "Each query lists acceptable source URLs (multi-source ambiguity supported). "
+        "Categorized as easy/ambiguous/cross_domain/confusing/tax/negative — ",
+        client,
+    )

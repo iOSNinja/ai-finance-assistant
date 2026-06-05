@@ -27,13 +27,22 @@ from tests.eval.datasets import (
     ROUTING_DATASET_NAME_V2,
     ROUTING_EXAMPLES_V2,
     ensure_routing_dataset_v2,
+    RETRIEVAL_DATASET_NAME,
+    RETRIEVAL_EXAMPLES_V1,
+    ensure_retrieval_dataset,
 )
+
 from tests.eval.evaluators import (
     routing_accuracy,
     routing_precision,
     routing_recall,
+    mrr_at_5,
+    recall_at_5,
+    hit_at_1,
 )
 from tests.eval.wrapper import FinnieEvalWrapper
+from tests.eval.retrieval_wrapper import FinnieRetrievalWrapper
+
 
 logger = setup_logger(__name__)
 
@@ -46,13 +55,22 @@ SUITES: dict[str, dict] = {
         "examples":     ROUTING_EXAMPLES,
         "ensure_fn":    ensure_routing_dataset,
         "evaluators":   [routing_accuracy, routing_precision, routing_recall],
+        "wrapper_cls":  FinnieEvalWrapper,
     },
     "routing-adversarial": {  # NEW stress suite
         "dataset_name": ROUTING_DATASET_NAME_V2,
         "examples":     ROUTING_EXAMPLES_V2,
         "ensure_fn":    ensure_routing_dataset_v2,
         "evaluators":   [routing_accuracy, routing_precision, routing_recall],
+        "wrapper_cls":  FinnieEvalWrapper,
     },
+    "retrieval": {
+        "dataset_name": RETRIEVAL_DATASET_NAME,
+        "examples":     RETRIEVAL_EXAMPLES_V1,
+        "ensure_fn":    ensure_retrieval_dataset,
+        "evaluators":   [mrr_at_5, recall_at_5, hit_at_1],
+        "wrapper_cls":  FinnieRetrievalWrapper, 
+    }
 }
 
 
@@ -99,8 +117,9 @@ def main() -> int:
         args.suite, dataset_name, len(examples), args.reps, experiment_name,
     )
 
-    # Build wrapper once
-    wrapper = FinnieEvalWrapper()
+    # Build wrapper once - use the wrapper class declared in the suite.
+    wrapper_cls = suite.get("wrapper_cls", FinnieEvalWrapper)
+    wrapper = wrapper_cls()
 
     # LangSmith pulls examples from the server-side dataset by name, calls
     # wrapper(inputs) per example, then scores each output via the evaluators.

@@ -73,4 +73,73 @@ def routing_recall(run: Any, example: Any) -> dict:
     recall = len(actual & expected) / len(expected)
     return {"key": "routing_recall", "score": recall}
 
+# Retrieval quality evaluators:
+# 1. Source-based MRR
+# 2. Recall@5
+# 3. hit@1
 
+def _chunk_source(chunk: dict) -> str:
+    """Extract the source URL from a retrieved chunk."""
+    return chunk.get("source_url") or chunk.get("source") or ""
+
+def mrr_at_5(run: Any, example: Any) -> dict:
+    """Mean Reciprocal Rank @ 5."""
+    chunks = run.outputs.get("chunks", [])
+    gold = set(example.outputs.get("relevant_sources", [])) # gold = retrievel dataset defined datasets.py
+
+    if not gold:
+        return {
+            "key": "mrr_at_5",
+            "score": None,
+            "comment": "negative case — MRR not applicable; see off_topic_check",
+        }
+
+    # Find rank of first chunk whose source is in the gold set
+    for rank, chunk in enumerate(chunks[:5], start=1):
+        source = _chunk_source(chunk)
+        if source in gold:
+            mrr = 1.0 / rank
+            return {
+                "key": "mrr_at_5",
+                "score": mrr,
+                "comment": f"first_gold_at_rank={rank} source={source}",
+            }
+
+    # No gold source in top-5 indicates a miss
+    retrieved_sources = [_chunk_source(c) for c in chunks[:5]]
+    return {
+        "key": "mrr_at_5",
+        "score": 0.0,
+        "comment": f"no gold in top-5 | gold={sorted(gold)[:1]}... "
+                   f"got={retrieved_sources[:3]}...",
+    }
+
+
+def recall_at_5(run: Any, example: Any) -> dict:
+    """did at least one gold source appear in top-5?"""
+    chunks = run.outputs.get("chunks", [])
+    gold = set(example.outputs.get("relevant_sources", []))
+
+    if not gold:
+        return {"key": "recall_at_5", "score": None}  # negative case
+
+    retrieved = {_chunk_source(c) for c in chunks[:5]}
+    found = bool(retrieved & gold)
+    return {"key": "recall_at_5", "score": 1.0 if found else 0.0}
+
+
+def hit_at_1(run: Any, example: Any) -> dict:
+    """Stricter metric: was the FIRST chunk a gold source?"""
+    chunks = run.outputs.get("chunks", [])
+    gold = set(example.outputs.get("relevant_sources", []))
+
+    if not gold:
+        return {"key": "hit_at_1", "score": None}
+
+    if not chunks:
+        return {"key": "hit_at_1", "score": 0.0, "comment": "no chunks returned"}
+
+    top_source = _chunk_source(chunks[0])
+    score = 1.0 if top_source in gold else 0.0
+    return {"key": "hit_at_1", "score": score,
+            "comment": f"top_source={top_source}"}
