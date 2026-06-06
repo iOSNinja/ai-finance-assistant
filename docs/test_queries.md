@@ -2,7 +2,6 @@
 
 A categorized list of queries that exercise different parts of Finnie's system. Use these to:
 - Spot-check that routing, RAG, guardrails, and the UI all behave correctly after any change
-- Demonstrate breadth of capability in interviews / demos
 - Seed new entries in the eval datasets (`tests/eval/datasets.py`) when you find a failure
 
 Tip: queries marked `(should be blocked)` should return Finnie's generic safe fallback. Queries marked `(should redact)` should still produce an answer but with PII stripped before the LLM sees the query.
