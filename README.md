@@ -12,9 +12,7 @@
 
 ## 📺 Demo
 
-> *Demo video link will be added here when recording is complete.*
-
-A 5–10 minute walkthrough showing every agent in action — chat, dedicated tabs, multi-agent routing, and source citations.
+> Video walkthrough coming soon. Until then, [click here](docs/screenshots/) to see the UI screenshots.
 
 ---
 
