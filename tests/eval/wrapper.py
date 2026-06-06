@@ -59,6 +59,10 @@ def _build_initial_state(query: str) -> dict:
         "market_response":    "",
         "news_response":      "",
         "final_answer":       "",
+        "is_safe_input":      True,
+        "input_block_reason": "",
+        "input_block_category": "ok",
+        "pii_redactions":       [],
     }
 
 
@@ -100,9 +104,13 @@ class FinnieEvalWrapper:
                 "portfolio_response": "",
                 "market_response":    "",
                 "news_response":      "",
-                "chunks":             "",
-                "chunk_count":        "",
+                "chunks":             [],
+                "chunk_count":        0,
                 "error":              True,
+                "is_safe_input":      True,
+                "input_block_reason": "",
+                "input_block_category": "ok",
+                "pii_redactions":       [],
             }
         
         # extract chunks from each agent's tool messages
@@ -123,4 +131,8 @@ class FinnieEvalWrapper:
             "chunks":             all_chunks,
             "chunk_count":        len(all_chunks),
             "is_finance_query":   final.get("is_finance_query", True),
+            "is_safe_input":        final.get("is_safe_input", True),
+            "input_block_reason":   final.get("input_block_reason", ""),
+            "input_block_category": final.get("input_block_category", "ok"),
+            "pii_redactions":       final.get("pii_redactions", []),
         }

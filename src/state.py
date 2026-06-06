@@ -5,6 +5,7 @@ state.py - Shared state scheme for the ai-finance-assistant multi-agent graph.
 from typing import Annotated, TypedDict
 from langchain_core.messages import AnyMessage
 from langgraph.graph.message import add_messages
+import operator
 
 def reset_or_add_messages(current: list[AnyMessage], 
     update: list[AnyMessage]) -> list[AnyMessage]:
@@ -45,3 +46,8 @@ class FinnieState(TypedDict):
     tax_response: str
 
     final_answer: str # final response returned to the user, set by synthesizer
+
+    # guardrails
+    is_safe_input:        bool
+    input_block_category: str
+    pii_redactions:       Annotated[list[dict], operator.add]

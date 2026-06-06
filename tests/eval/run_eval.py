@@ -33,6 +33,9 @@ from tests.eval.datasets import (
     GENERATION_DATASET_NAME,
     GENERATION_EXAMPLES_V1,
     ensure_generation_dataset,
+    GUARDRAILS_DATASET_NAME,
+    GUARDRAILS_EXAMPLES_V1,
+    ensure_guardrails_dataset,
 )
 
 from tests.eval.evaluators import (
@@ -48,6 +51,11 @@ from tests.eval.evaluators import (
     faithfulness_evaluator,
     correctness_evaluator,
     keyword_correctness,
+    # Guardrails
+    guard_action_correct,
+    block_category_correct,
+    pii_redaction_correct,
+    pii_leak_check,
 )
 from tests.eval.wrapper import FinnieEvalWrapper
 from tests.eval.retrieval_wrapper import FinnieRetrievalWrapper
@@ -86,6 +94,18 @@ SUITES: dict[str, dict] = {
         "ensure_fn":    ensure_generation_dataset,
         "evaluators":   [faithfulness_evaluator, correctness_evaluator, keyword_correctness],
         "wrapper_cls":  FinnieEvalWrapper,  # reusing the full-graph wrapper, no new wrapper needed for this!
+    },
+    "guardrails": {
+        "dataset_name": GUARDRAILS_DATASET_NAME,
+        "examples":     GUARDRAILS_EXAMPLES_V1,
+        "ensure_fn":    ensure_guardrails_dataset,
+        "evaluators":   [
+            guard_action_correct,
+            block_category_correct,
+            pii_redaction_correct,
+            pii_leak_check,
+        ],
+        "wrapper_cls":  FinnieEvalWrapper,
     }
 }
 

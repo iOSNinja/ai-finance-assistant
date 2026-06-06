@@ -13,6 +13,7 @@ from orchestrator to agents.
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
+from src.guardrails import check_input, scrub_output
 
 from src.state import FinnieState
 from src.utils.logger import setup_logger
@@ -40,12 +41,54 @@ from src.agents.news.agent import (
 
 logger = setup_logger("finnie.workflow.graph")
 
+# Generic safe fallback — DO NOT reveal which guard fired.
+# Same message for every block, so attackers can't probe for bypasses.
+SAFE_FALLBACK = (
+    "I'm Finnie, your finance education assistant. I can help with financial "
+    "concepts, taxes, savings goals, portfolio analysis, market data, and "
+    "financial news. If you have a question on one of these topics, please rephrase."
+)
+
+def input_guard_node(state: FinnieState) -> dict:
+    """Pre-orchestrator input safety. Short-circuits to END if unsafe."""
+    result = check_input(state["user_query"])
+    if result.is_safe:
+        return {"is_safe_input": True, "input_block_category": "ok"}
+    # BLOCKED — set final_answer here; graph will skip to END
+    return {
+        "is_safe_input":        False,
+        "input_block_category": result.category,
+        "final_answer":         SAFE_FALLBACK,   # generic, not reason-revealing
+        "route":                [],
+    }
+
+
+def output_guard_node(state: FinnieState) -> dict:
+    """Post-synthesizer output safety. Redact + audit."""
+    answer = state.get("final_answer", "")
+    is_finance = state.get("is_finance_query", True)
+    result = scrub_output(answer, is_finance_query=is_finance)
+
+    update = {}
+    if result.modified:
+        update["final_answer"] = result.text
+    if result.pii_redactions:
+        update["pii_redactions"] = result.pii_redactions
+    return update
+
+
+def _route_after_input_guard(state: FinnieState) -> str:
+    """Conditional edge: skip everything if input blocked."""
+    return "END" if not state.get("is_safe_input", True) else "orchestrator"
+
 def build_graph():
     """Construct, compile and return the Finnie AI Finance Assistant graph."""
 
     builder = StateGraph(FinnieState)
 
     # --- Nodes ----------------------------------------------------
+    # input_guard runs first
+    builder.add_node("input_guard", input_guard_node)
     builder.add_node("orchestrator", orchestrator_node)
     builder.add_node("qa_agent_node", qa_agent_node)
     builder.add_node("qa_tools_node", qa_tools_node)
@@ -60,11 +103,18 @@ def build_graph():
     builder.add_node("news_agent_node", news_agent_node)
     builder.add_node("news_tools_node", news_tools_node)
     builder.add_node("synthesizer_node", synthesizer_node)
+    # output_guard runs last
+    builder.add_node("output_guard", output_guard_node)
 
     # --- Edges ----------------------------------------------------
     
-    # START -> orchestrator (fixed)
-    builder.add_edge(START, "orchestrator")
+    # START -> input_guard (fixed)
+    builder.add_edge(START, "input_guard")
+    builder.add_conditional_edges(
+        "input_guard",
+        _route_after_input_guard,
+        {"orchestrator": "orchestrator", "END": END},
+    )
 
      # Orchestrator -> agent(s): handled internally by Command(goto=Send(...))
 
@@ -141,8 +191,9 @@ def build_graph():
     # wire tools-node back to agent node
     builder.add_edge("news_tools_node", "news_agent_node")
 
-    # Synthesizer -> END (fixed)
-    builder.add_edge("synthesizer_node", END)
+    # Synthesizer -> output_guard -> END (fixed)
+    builder.add_edge("synthesizer_node", "output_guard")
+    builder.add_edge("output_guard", END)
 
     # Let's compile with in-memory checkpointer
     memory = MemorySaver()
