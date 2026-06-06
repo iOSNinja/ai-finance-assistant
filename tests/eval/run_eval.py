@@ -34,7 +34,7 @@ from tests.eval.datasets import (
     GENERATION_EXAMPLES_V1,
     ensure_generation_dataset,
     GUARDRAILS_DATASET_NAME,
-    GUARDRAILS_EXAMPLES_V1,
+    GUARDRAILS_EXAMPLES_V2,
     ensure_guardrails_dataset,
 )
 
@@ -53,8 +53,8 @@ from tests.eval.evaluators import (
     keyword_correctness,
     # Guardrails
     guard_action_correct,
+    input_pii_entities_correct,
     block_category_correct,
-    pii_redaction_correct,
     pii_leak_check,
 )
 from tests.eval.wrapper import FinnieEvalWrapper
@@ -97,12 +97,12 @@ SUITES: dict[str, dict] = {
     },
     "guardrails": {
         "dataset_name": GUARDRAILS_DATASET_NAME,
-        "examples":     GUARDRAILS_EXAMPLES_V1,
+        "examples":     GUARDRAILS_EXAMPLES_V2,
         "ensure_fn":    ensure_guardrails_dataset,
         "evaluators":   [
             guard_action_correct,
             block_category_correct,
-            pii_redaction_correct,
+            input_pii_entities_correct,
             pii_leak_check,
         ],
         "wrapper_cls":  FinnieEvalWrapper,

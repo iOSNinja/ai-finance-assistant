@@ -27,6 +27,8 @@ dependencies = [
     "lxml>=6.1.1",
     "tiktoken>=0.7.0",
     "python-json-logger>=4.1.0",
+    "presidio-analyzer>=2.2.362",
+    "presidio-anonymizer>=2.2.362",
 ]
 
 [tool.hatch.build.targets.wheel]

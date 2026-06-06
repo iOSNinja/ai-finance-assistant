@@ -63,6 +63,7 @@ def _build_initial_state(query: str) -> dict:
         "input_block_reason": "",
         "input_block_category": "ok",
         "pii_redactions":       [],
+        "input_redactions":     [],
     }
 
 
@@ -72,6 +73,11 @@ class FinnieEvalWrapper:
     def __init__(self):
         logger.info("Building graph for eval wrapper")
         self.graph = build_graph()
+        # Pre-warm Presidio so first eval example doesn't pay the
+        # ~5-10s spaCy model load cost (compresses P99 latency)
+        from src.guardrails.pii import _get_engines
+        _get_engines()
+        logger.info("Presidio warmed up")
 
     def __call__(self, inputs: dict[str, Any]) -> dict[str, Any]:
         """Invoke the graph and return the fields evaluators care about. 
@@ -111,6 +117,7 @@ class FinnieEvalWrapper:
                 "input_block_reason": "",
                 "input_block_category": "ok",
                 "pii_redactions":       [],
+                "input_redactions":     [],
             }
         
         # extract chunks from each agent's tool messages
@@ -135,4 +142,5 @@ class FinnieEvalWrapper:
             "input_block_reason":   final.get("input_block_reason", ""),
             "input_block_category": final.get("input_block_category", "ok"),
             "pii_redactions":       final.get("pii_redactions", []),
+            "input_redactions":     final.get("input_redactions", []),
         }

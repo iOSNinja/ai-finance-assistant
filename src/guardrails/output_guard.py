@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from src.guardrails.patterns import (
     ADVICE_VIOLATION_PATTERNS, DISCLAIMER_MARKERS, PII_PATTERNS,
 )
+from src.guardrails.pii import redact_pii
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -28,9 +29,8 @@ class OutputGuardResult:
     modified: bool = False
 
 
-def _redact_pii(text: str) -> tuple[str, list[dict]]:
-    """Defensive PII scrubbing. Catches SSN/CC/email patterns."""
-    logger.info("Checking for pii_redactions...")
+def _redact_pii_regex(text: str) -> tuple[str, list[dict]]:
+    """Defensive regex PII scrubbing (fast path before Presidio)."""
     redactions = []
     for pii_type, pattern in PII_PATTERNS.items():
         matches = pattern.findall(text)
@@ -42,7 +42,6 @@ def _redact_pii(text: str) -> tuple[str, list[dict]]:
 
 def _check_advice_violations(text: str) -> list[str]:
     """Find advice-violation pattern matches. Returns snippets for audit."""
-    logger.info("Checking for advice_violations...")
     violations = []
     for pat in ADVICE_VIOLATION_PATTERNS:
         match = pat.search(text)
@@ -53,46 +52,49 @@ def _check_advice_violations(text: str) -> list[str]:
 
 def _has_disclaimer(text: str) -> bool:
     """At least one disclaimer marker must appear in finance responses."""
-    logger.info("Checking for disclaimer_missing...")
     text_lower = text.lower()
     return any(marker in text_lower for marker in DISCLAIMER_MARKERS)
 
 
 def scrub_output(text: str, is_finance_query: bool = True) -> OutputGuardResult:
     """Run all output guards. Returns transformed text + audit fields."""
-    logger.info(f"scrub_output: input_query: {text}")
     if not text:
         return OutputGuardResult(text="")
 
     original = text
-    text, pii_redactions = _redact_pii(text)
+
+    # Step 1 — regex PII safety net (fast)
+    text, regex_redactions = _redact_pii_regex(text)
+
+    # Step 2 — Presidio (catches what regex misses: names, addresses, DOB)
+    text, presidio_redactions = redact_pii(text)
+
+    # Combine audit logs
+    all_redactions = regex_redactions + [
+        {"type": r["type"], "score": r["score"], "via": "presidio"}
+        for r in presidio_redactions
+    ]
+
+    # Step 3 — advice-violation check
     violations = _check_advice_violations(text)
+
+    # Step 4 — disclaimer presence
     disclaimer_missing = is_finance_query and not _has_disclaimer(text)
 
     if violations:
-        logger.warning("Output guard: advice-violation pattern detected",
-                       extra={"guard_type": "advice_violation",
-                              "violations": violations})
-    else:
-        logger.info("advice_violations check passed!")
-
-    if pii_redactions:
-        logger.info("Output guard: PII redacted",
-                    extra={"guard_type": "pii_safety_net",
-                           "redactions": pii_redactions})
-    else:
-        logger.info("pii_redactions check passed!")
-
+        logger.warning("Output guard: advice-violation pattern", extra={
+            "guard_type": "advice_violation", "violations": violations})
+    if all_redactions:
+        logger.info("Output guard: PII redacted", extra={
+            "guard_type": "pii_safety_net", "redactions": all_redactions})
     if disclaimer_missing:
-        logger.warning("Output guard: disclaimer missing on finance response",
-                       extra={"guard_type": "disclaimer_presence"})
-    else:
-        logger.info("disclaimer_missing check passed!")
+        logger.warning("Output guard: disclaimer missing", extra={
+            "guard_type": "disclaimer_presence"})
 
     return OutputGuardResult(
         text=text,
         advice_violations=violations,
-        pii_redactions=pii_redactions,
+        pii_redactions=all_redactions,
         disclaimer_missing=disclaimer_missing,
         modified=(text != original),
     )

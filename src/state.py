@@ -50,4 +50,5 @@ class FinnieState(TypedDict):
     # guardrails
     is_safe_input:        bool
     input_block_category: str
-    pii_redactions:       Annotated[list[dict], operator.add]
+    input_redactions:     list[dict]                          # input PII audit
+    pii_redactions:       Annotated[list[dict], operator.add] # output PII audit

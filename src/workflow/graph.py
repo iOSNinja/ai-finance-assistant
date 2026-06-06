@@ -50,16 +50,23 @@ SAFE_FALLBACK = (
 )
 
 def input_guard_node(state: FinnieState) -> dict:
-    """Pre-orchestrator input safety. Short-circuits to END if unsafe."""
+    """Pre-orchestrator input safety. Blocks unsafe OR forwards a cleaned query."""
     result = check_input(state["user_query"])
-    if result.is_safe:
-        return {"is_safe_input": True, "input_block_category": "ok"}
-    # BLOCKED — set final_answer here; graph will skip to END
+    if not result.is_safe:
+        # Block path
+        return {
+            "is_safe_input":        False,
+            "input_block_category": result.category,
+            "final_answer":         SAFE_FALLBACK,
+            "route":                [],
+        }
+    
+    # Safe path — forward cleaned query (which may equal original if no PII found)
     return {
-        "is_safe_input":        False,
-        "input_block_category": result.category,
-        "final_answer":         SAFE_FALLBACK,   # generic, not reason-revealing
-        "route":                [],
+        "is_safe_input":        True,
+        "input_block_category": "ok",
+        "user_query":           result.cleaned_query,    # may be redacted
+        "input_redactions":     result.input_redactions,
     }
 
 
