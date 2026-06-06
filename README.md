@@ -416,6 +416,8 @@ Why eval-driven instead of pytest-driven? Three reasons:
 
 Sanity-check scripts (e.g., `tests/sanity/check_kb_sources.py`) cover the few cases that benefit from quick imperative checks — KB ingestion health, vector store stats — outside the LangSmith flow.
 
+For manual UI testing, see [`docs/test_queries.md`](docs/test_queries.md) — a categorized list of test queries covering happy paths, prompt injection, PII redaction, advice redirects, length/moderation edge cases, off-topic redirects, and known limitations. Each category maps back to the eval suite that covers it.
+
 ---
 
 ## 🗺 Roadmap
