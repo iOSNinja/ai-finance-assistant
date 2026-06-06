@@ -5,6 +5,10 @@ Run from project root:
     uv run streamlit run src/web_app/app.py
 """
 
+from dotenv import load_dotenv
+load_dotenv()
+
+
 # Ensure project root on sys.path so `from src...` works under Streamlit's launcher
 import sys
 from pathlib import Path

@@ -15,7 +15,14 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-_openai_client = OpenAI()
+_openai_client = None
+
+def _get_openai_client():
+    """Lazy-init the OpenAI client used for Moderation calls."""
+    global _openai_client
+    if _openai_client is None:
+        _openai_client = OpenAI()
+    return _openai_client
 
 
 @dataclass
@@ -58,8 +65,9 @@ def check_input(query: str) -> InputGuardResult:
 
     # Step 3 — OpenAI Moderation (fail-open)
     try:
-        response = _openai_client.moderations.create(
-            model="omni-moderation-latest", input=query)
+        response = _get_openai_client().moderations.create(
+            model="omni-moderation-latest", input=query
+        )
         result = response.results[0]
         if result.flagged:
             flagged = [k for k, v in result.categories.model_dump().items() if v]

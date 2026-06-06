@@ -125,3 +125,72 @@ def redact_pii(text: str, score_threshold: float = 0.5) -> tuple[str, list[dict]
             "error_type": type(e).__name__, "error": str(e),
         })
         return text, []
+
+
+# ──────────────────────────────────────────────────────────────
+# OUTPUT-LAYER PII detection (narrower, stricter than input)
+# ──────────────────────────────────────────────────────────────
+# Philosophy: input-layer Presidio should favor RECALL (strip aggressively;
+# false positives are fine because user PII shouldn't reach the LLM).
+# Output-layer Presidio should favor PRECISION (only redact when certain,
+# because false positives degrade the answer the user actually sees).
+#
+# So output-layer drops the ambiguous types (PERSON, LOCATION, DATE_TIME,
+# US_DRIVER_LICENSE) that frequently false-positive on finance content
+# (e.g., "Bitcoin" → PERSON, "Frisco" → LOCATION, "2024" → DATE_TIME).
+# What remains are unambiguous high-stakes entities that the LLM should
+# NEVER be generating in an educational finance answer.
+
+HIGH_STAKES_OUTPUT_ENTITIES = [
+    "US_SSN",
+    "CREDIT_CARD",
+    "EMAIL_ADDRESS",
+    "PHONE_NUMBER",
+    "US_BANK_NUMBER",
+    "IBAN_CODE",
+    # Deliberately omitted: PERSON, LOCATION, DATE_TIME, US_DRIVER_LICENSE
+    # Too many false positives on finance content; input layer handles them.
+]
+
+
+def redact_pii_output(text: str, score_threshold: float = 0.85) -> tuple[str, list[dict]]:
+    """Tighter Presidio variant for OUTPUT redaction.
+
+    Differences vs redact_pii():
+      - Narrower entity list (high-stakes only)
+      - Higher default threshold (0.85 vs 0.5) — only act when certain
+      - No DOB-context filtering needed (DATE_TIME not in entity list)
+
+    Use this on synthesized answers; use redact_pii() on raw user input.
+    """
+    if not text:
+        return text, []
+
+    try:
+        analyzer, anonymizer = _get_engines()
+        results = analyzer.analyze(
+            text=text,
+            language="en",
+            entities=HIGH_STAKES_OUTPUT_ENTITIES,
+            score_threshold=score_threshold,
+        )
+        if not results:
+            return text, []
+
+        audit = [
+            {
+                "type": r.entity_type,
+                "score": round(r.score, 3),
+                "snippet": text[r.start:r.end][:40],
+            }
+            for r in results
+        ]
+
+        anonymized = anonymizer.anonymize(text=text, analyzer_results=results)
+        return anonymized.text, audit
+
+    except Exception as e:
+        logger.error("Presidio output redaction failed", extra={
+            "error_type": type(e).__name__, "error": str(e),
+        })
+        return text, []

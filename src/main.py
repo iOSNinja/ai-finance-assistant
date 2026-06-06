@@ -4,6 +4,8 @@ src/main.py — Finnie AI Finance Assistant CLI entry point.
 Run from terminal:
     uv run python -m src.main
 """
+from dotenv import load_dotenv
+load_dotenv()
 
 import uuid
 

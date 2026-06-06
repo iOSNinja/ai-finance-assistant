@@ -14,7 +14,7 @@ from dataclasses import dataclass, field
 from src.guardrails.patterns import (
     ADVICE_VIOLATION_PATTERNS, DISCLAIMER_MARKERS, PII_PATTERNS,
 )
-from src.guardrails.pii import redact_pii
+from src.guardrails.pii import redact_pii_output
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -66,8 +66,11 @@ def scrub_output(text: str, is_finance_query: bool = True) -> OutputGuardResult:
     # Step 1 — regex PII safety net (fast)
     text, regex_redactions = _redact_pii_regex(text)
 
-    # Step 2 — Presidio (catches what regex misses: names, addresses, DOB)
-    text, presidio_redactions = redact_pii(text)
+    # Step 2 — Presidio (high-stakes entities only — SSN/CC/email/phone/bank/IBAN).
+    # Drops ambiguous types (PERSON, LOCATION, DATE_TIME) to avoid false positives
+    # on finance content (e.g., "Bitcoin"→PERSON, "Frisco"→LOCATION).
+    # Input layer is responsible for those — output layer is precision-first.
+    text, presidio_redactions = redact_pii_output(text)
 
     # Combine audit logs
     all_redactions = regex_redactions + [

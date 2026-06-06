@@ -47,6 +47,20 @@ def _render_results(result: dict) -> None:
     st.markdown("---")
     st.markdown('<div class="section-eyebrow">Portfolio metrics</div>', unsafe_allow_html=True)
 
+    # Allow metric values to wrap onto multiple lines instead of truncating
+    # (otherwise long labels like "Moderate-Aggressive" show as "Moderate-Ag...")
+    st.markdown("""
+    <style>
+    [data-testid="stMetricValue"] {
+        white-space: normal !important;
+        word-wrap: break-word;
+        overflow: visible;
+        font-size: 1.5rem;
+        line-height: 1.2;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total value",       f"${result['total_value']:,.0f}")
     c2.metric("# Holdings",        result["num_holdings"])
