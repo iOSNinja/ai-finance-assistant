@@ -1,5 +1,18 @@
 """
 tests/mcp/smoke_stdio.py — End-to-end smoke test for the stdio transport.
+
+WHAT THIS TEST PROVES:
+  1. run_stdio.py can be launched as a subprocess (Claude Desktop's pattern)
+  2. The MCP `initialize` handshake completes successfully
+  3. All 9 tools and 2 prompts are discovered via list_tools / list_prompts
+  4. One tool from EACH architectural pattern executes end-to-end:
+       - RAG:  finance_qa_search
+       - Math: required_monthly_savings
+       - API:  get_index_overview
+  5. Both prompt templates render correctly
+
+USAGE:
+  uv run python -m tests.mcp.smoke_stdio
 """
 import asyncio
 import json
@@ -25,6 +38,9 @@ EXPECTED_PROMPTS = 2
 
 def _content_text(result: Any) -> str:
     """Extract the text payload from an MCP CallToolResult's content blocks.
+
+    MCP tool results carry a list of typed content blocks (text, image, audio,
+    resource). For our tools, the first block is always text — a JSON string.
     """
     if not result.content:
         return ""
