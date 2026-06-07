@@ -12,9 +12,7 @@
 
 ## 📺 Demo
 
-> *Demo video link will be added here when recording is complete.*
-
-A 5–10 minute walkthrough showing every agent in action — chat, dedicated tabs, multi-agent routing, and source citations.
+> Video walkthrough coming soon. Until then, [click here](docs/screenshots/) to see the UI screenshots.
 
 ---
 
@@ -177,7 +175,7 @@ A walk-through of what actually happens behind the scenes when you ask Finnie a 
 
 ```bash
 # Clone the repo
-git clone https://github.com/<your-username>/ai-finance-assistant.git
+git clone https://github.com/iOSNinja/ai-finance-assistant.git
 cd ai-finance-assistant
 
 # Install dependencies (creates .venv automatically)
