@@ -2,7 +2,7 @@
 src/mcp_server/run_http.py — Run Finnie's MCP server over HTTP.
 
 TRANSPORT: SSE  or  Streamable HTTP
-  --transport sse              Legacy SSE (Week 6 default, two endpoints)
+  --transport sse              Legacy SSE (two endpoints)
   --transport streamable-http  Spec's modern HTTP transport (single /mcp endpoint)
 
 WHY BOTH?
@@ -42,7 +42,7 @@ def main() -> int:
         "--transport",
         choices=VALID_TRANSPORTS,
         default="sse",
-        help="HTTP transport flavor. Default: sse (Week 6 default).",
+        help="HTTP transport flavor. Default: sse.",
     )
     parser.add_argument(
         "--host",

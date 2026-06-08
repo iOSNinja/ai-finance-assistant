@@ -438,7 +438,7 @@ Each `@mcp.tool()` is a **thin wrapper over the existing LangChain `@tool`** in 
 | Transport | Use case | Command |
 |---|---|---|
 | **stdio** | Claude Desktop subprocess (no network) | `uv run python -m src.mcp_server.run_stdio` |
-| **SSE** | HTTP, multi-client, Week 6 default | `uv run python -m src.mcp_server.run_http --transport sse` |
+| **SSE** | HTTP, multi-client | `uv run python -m src.mcp_server.run_http --transport sse` |
 | **Streamable HTTP** | Spec's modern HTTP transport (recommended replacement for SSE) | `uv run python -m src.mcp_server.run_http --transport streamable-http` |
 
 All three runners support a `--check` flag that validates imports and prints the registered tool/prompt surface without starting the protocol loop — useful in CI.
