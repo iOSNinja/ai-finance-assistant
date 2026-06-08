@@ -1,0 +1,1 @@
+"""tests/mcp — End-to-end smoke tests for Finnie's MCP server."""

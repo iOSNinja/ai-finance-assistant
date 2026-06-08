@@ -257,7 +257,7 @@ ai-finance-assistant/
 │   ├── workflow/
 │   │   └── graph.py               ← LangGraph StateGraph wiring (includes input/output guard nodes)
 │   │
-│   ├── guardrails/                ← input + output safety layer (Phase 1c)
+│   ├── guardrails/                ← input + output safety layer
 │   │   ├── patterns.py            ← regex patterns (injection, advice violation, PII)
 │   │   ├── input_guard.py         ← length / regex / Moderation / LLM classifier / Presidio
 │   │   ├── output_guard.py        ← PII scrub / advice check / disclaimer presence
@@ -306,7 +306,7 @@ This section grows as each phase lands. Each layer is built **into** the system,
 - External API helpers (`yfinance`, `Tavily`) decorated with `@traceable` for full coverage
 - Structured JSON logs (`LOG_FORMAT=json`) with embedded LangSmith `trace_id` — correlatable to traces in any log aggregator
 - Per-agent tags + dynamic tags (e.g., `agents_merged:3` on the synthesizer)
-- Production sampling at 10–20% scheduled for Phase 6 (cloud deployment)
+- Production sampling at 10–20% scheduled for future (cloud deployment)
 
 **Outcome:** open any trace → see the routing decision + every tool call + every LLM call in a tree view. Click any log line → jump to the trace via `trace_id`. Root-cause analysis in under 2 minutes.
 
@@ -418,6 +418,73 @@ For manual UI testing, see [`docs/test_queries.md`](docs/test_queries.md) — a 
 
 ---
 
+## 🔌 MCP Server
+
+Finnie's 9 tools and 2 prompt templates are exposed via the **Model Context Protocol (MCP)** — Anthropic's open protocol for tool integration. Any MCP-compatible client (Claude Desktop, custom agent frameworks, IDE integrations) can discover and invoke them without writing a single line of integration code.
+
+### What's exposed
+
+| Primitive | Surface |
+|---|---|
+| **Tools (9)** — *RAG* | `finance_qa_search`, `tax_education_search` |
+| **Tools (9)** — *Math (deterministic)* | `required_monthly_savings`, `project_growth`, `analyze_portfolio` |
+| **Tools (9)** — *External API* | `get_stock_quote`, `get_historical_prices`, `get_index_overview`, `search_financial_news` |
+| **Prompts (2)** | `explain-like-im-5` (parameterized teaching template), `regulatory-disclaimer` (educational-only disclaimer) |
+
+Each `@mcp.tool()` is a **thin wrapper over the existing LangChain `@tool`** in `src/agents/*/tool.py` — no business-logic duplication. The wrapper adds protocol surface; the underlying tool keeps its caching, logging, observability, and error handling.
+
+### Transports supported
+
+| Transport | Use case | Command |
+|---|---|---|
+| **stdio** | Claude Desktop subprocess (no network) | `uv run python -m src.mcp_server.run_stdio` |
+| **SSE** | HTTP, multi-client, Week 6 default | `uv run python -m src.mcp_server.run_http --transport sse` |
+| **Streamable HTTP** | Spec's modern HTTP transport (recommended replacement for SSE) | `uv run python -m src.mcp_server.run_http --transport streamable-http` |
+
+All three runners support a `--check` flag that validates imports and prints the registered tool/prompt surface without starting the protocol loop — useful in CI.
+
+### End-to-end smoke tests (no LLM client required)
+
+| Test | What it proves |
+|---|---|
+| `tests/mcp/smoke_stdio.py` | stdio transport — handshake, discovery, one tool of each pattern (RAG / math / API), both prompts render |
+| `tests/mcp/smoke_sse.py` | SSE transport — handshake, discovery, tool call over HTTP |
+| `tests/mcp/smoke_streamable.py` | Streamable HTTP transport — handshake, discovery, tool call over the spec's modern HTTP envelope |
+
+```bash
+# Stdio (subprocess pattern — exactly how Claude Desktop launches the server)
+uv run python -m tests.mcp.smoke_stdio
+
+# SSE — server in terminal 1, smoke in terminal 2
+uv run python -m src.mcp_server.run_http --transport sse
+uv run python -m tests.mcp.smoke_sse
+
+# Streamable HTTP — server in terminal 1, smoke in terminal 2
+uv run python -m src.mcp_server.run_http --transport streamable-http
+uv run python -m tests.mcp.smoke_streamable
+```
+
+### Claude Desktop integration
+
+A sample `claude_desktop_config.json` is committed at the repo root. To wire it up on macOS:
+
+```bash
+# Copy the sample into Claude Desktop's config location
+cp claude_desktop_config.json \
+   ~/Library/Application\ Support/Claude/claude_desktop_config.json
+
+# Fully restart Claude Desktop (Cmd+Q, then re-open)
+osascript -e 'quit app "Claude"' && sleep 2 && open -a "Claude"
+```
+
+In a new conversation, the 🔌 menu will show `finnie · 9 tools, 2 prompts`. Try:
+
+> *"Using finnie, what's the S&P 500 doing today?"* → calls `get_index_overview`
+> *"Calculate how much I'd need to save monthly to reach $1M in 30 years"* → calls `required_monthly_savings`
+> Click `+ → Add from finnie → Explain-like-im-5` → renders the parameterized teaching prompt
+
+---
+
 ## 🗺 Roadmap
 
 | Status | Item |
@@ -425,8 +492,8 @@ For manual UI testing, see [`docs/test_queries.md`](docs/test_queries.md) — a 
 | ✅ | Observability (LangSmith) — auto-traced graph + structured logs |
 | ✅ | Evaluation framework — 5 suites covering routing/retrieval/generation/guardrails |
 | ✅ | Input + output guardrails — regex / Moderation / LLM classifier / Presidio |
+| ✅ | MCP server — expose Finnie's tools via Model Context Protocol |
 | 🚧 | Cost optimization — token tracking, semantic cache, per-query spend reporting |
-| 🚧 | MCP server — expose Finnie's tools via Model Context Protocol for Claude Desktop |
 | 🚧 | Cloud deployment — publicly accessible demo |
 | 🚧 | Demo video |
 
