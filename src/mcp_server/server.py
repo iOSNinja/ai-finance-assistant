@@ -314,7 +314,7 @@ def search_financial_news(query: str, max_results: int = 5) -> dict:
 # Prompt 1/2 — explain-like-im-5 (parameterized teaching template)
 @mcp.prompt("explain-like-im-5")
 def explain_like_im_5_prompt(
-    concept: str,
+    concept: str = "investing basics",
     audience: Literal["adult", "teen", "child"] = "adult",
 ) -> str:
     """Generate a teaching prompt that asks the LLM to explain a concept simply.
@@ -349,18 +349,28 @@ def explain_like_im_5_prompt(
 # Prompt 2/2 — regulatory-disclaimer (no parameters)
 @mcp.prompt("regulatory-disclaimer")
 def regulatory_disclaimer_prompt() -> str:
-    """Return Finnie's educational-only disclaimer footer.
+    """Render Finnie's canonical educational disclaimer as a conversation-priming request.
 
-    MCP NOTE: Centralizing the disclaimer in the MCP server means there's
-    exactly one place to update if compliance language changes. Any host
-    that connects to this server gets the latest version automatically —
-    no hard-coded strings drifting across codebases.
+    MCP NOTE: Centralizing the disclaimer in the MCP server means there's exactly
+    one place to update if compliance language changes. Any host that connects
+    to this server gets the latest version automatically — no hard-coded strings
+    drifting across codebases.
+
+    The returned string is framed as a USER REQUEST (not a bare statement) so
+    that Claude has a clear action to take when this prompt is fired from a
+    Claude Desktop / Cowork menu. Without this framing, Claude receives the
+    disclaimer text with no instruction and (correctly) asks "what should I
+    do with this?".
 
     Returns:
-        The disclaimer string, Markdown-formatted for chat rendering.
+        A user-message string that asks Claude to acknowledge Finnie's
+        regulatory disclaimer and apply it throughout the conversation.
     """
     return (
-        "**Important:** Finnie is an educational tool, not a financial advisor. "
+        "Please acknowledge Finnie's standard educational disclaimer for this "
+        "conversation, quoted exactly below, and confirm you'll apply this "
+        "principle to any financial information you provide going forward:\n\n"
+        "> **Important:** Finnie is an educational tool, not a financial advisor. "
         "The information provided is for general learning purposes only and "
         "does not constitute personalized financial, investment, tax, or legal "
         "advice. Consult a licensed professional before making any financial "
