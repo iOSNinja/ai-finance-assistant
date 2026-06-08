@@ -203,7 +203,7 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
     """Analyze portfolio holdings: allocation, diversification, risk profile, weighted ER.
 
     MCP NOTE: The one tool that takes structured input (a list of holdings).
-    We use plain `list[dict]` per Week 6 style — the LLM client reads this
+    We use plain `list[dict]` — the LLM client reads this
     docstring to learn the expected shape. The underlying tool validates
     every dict and raises ValueError on malformed input.
 
