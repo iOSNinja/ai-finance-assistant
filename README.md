@@ -92,7 +92,7 @@ flowchart TD
     OutputGuard --> Response(["Final Answer"])
 ```
 
-For deeper architecture detail, see [`docs/architecture.svg`](docs/architecture.svg). My initial versions: see [`version1`](docs/v1-sketch.jpeg), [`version2`](docs/v2-sketch.jpeg)
+For deeper architecture detail, see [`docs/finnie_architecture_final_version.png`](docs/finnie_architecture_final_version.png). My initial versions: see [`version1`](docs/v1-sketch.jpeg), [`version2`](docs/v2-sketch.jpeg)
 
 ---
 
