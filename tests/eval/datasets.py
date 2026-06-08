@@ -643,7 +643,7 @@ def ensure_generation_dataset(client=None):
     return _ensure_dataset(
         GENERATION_DATASET_NAME,
         GENERATION_EXAMPLES_V1,
-        "Generation quality eval for Finnie (Phase 1b.3). Each example has a "
+        "Generation quality eval for Finnie. Each example has a "
         "reference_answer for correctness scoring; specific-fact queries also "
         "have must_contain_keywords for omission detection. Faithfulness is "
         "scored vs the retrieved chunks (no gold needed). Uses the full "
@@ -774,7 +774,7 @@ def ensure_guardrails_dataset(client=None):
     return _ensure_dataset(
         GUARDRAILS_DATASET_NAME,
         GUARDRAILS_EXAMPLES_V2,
-        "Guardrails eval for Finnie (Phase 1c). Covers input blocking "
+        "Guardrails eval for Finnie. Covers input blocking "
         "(injection, length, jailbreak) and output redaction (PII). Each "
         "example specifies the expected guard action.",
         client,
