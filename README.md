@@ -12,7 +12,7 @@
 
 ## 📺 Demo
 
-> Video walkthrough coming soon. Until then, [click here](docs/screenshots/) to see the UI screenshots.
+> Checkout the full Video walkthrough [here](https://drive.google.com/drive/u/0/folders/1VdA-xeqVQIpyp3qwS69ptxOtYpakC6Vj). For UI screenshots, [click here](docs/screenshots/).
 
 ---
 
