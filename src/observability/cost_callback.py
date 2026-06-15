@@ -57,8 +57,6 @@ class CostTrackingCallback(BaseCallbackHandler):
         metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
-        # 🪲 TEMPORARY DEBUG — remove after diagnosing
-        print(f"[cost_callback] tags={tags} metadata={metadata}")
 
         # If no tracker is bound, drop the record — this just means we're
         # outside a 'with cost_tracker_for_request()' block (e.g., during
