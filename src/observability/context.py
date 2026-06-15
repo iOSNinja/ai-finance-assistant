@@ -33,19 +33,27 @@ def get_current_tracker() -> CostTracker | None:
 def cost_tracker_for_request(
     daily_budget_usd: float = 5.00,
     per_query_alert_usd: float = 0.10,
+    tracker: CostTracker | None = None,
 ) -> Iterator[CostTracker]:
-    """Bind a fresh CostTracker for the duration of a 'with' block.
+    """Bind a CostTracker for the duration of a `with` block.
 
-    Usage:
+    If `tracker` is provided, bind it (useful for accumulating across queries
+    in a UI session). Otherwise create a fresh CostTracker with the budget
+    parameters.
+
+    Usage (one-shot, fresh tracker):
         with cost_tracker_for_request() as tracker:
-            graph.invoke(state)   # all LLM calls inside track to 'tracker'
-            print(tracker.total_cost_usd)
-        # tracker is unbound here; further LLM calls won't track to it
+            graph.invoke(state)
+
+    Usage (accumulate across queries):
+        with cost_tracker_for_request(tracker=session_tracker):
+            graph.invoke(state)
     """
-    tracker = CostTracker(
-        daily_budget_usd=daily_budget_usd,
-        per_query_alert_usd=per_query_alert_usd,
-    )
+    if tracker is None:
+        tracker = CostTracker(
+            daily_budget_usd=daily_budget_usd,
+            per_query_alert_usd=per_query_alert_usd,
+        )
     token = _current_tracker.set(tracker)
     try:
         yield tracker

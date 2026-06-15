@@ -89,7 +89,7 @@ def synthesizer_node(state: FinnieState) -> dict:
             )],
             config={
                 "run_name": "synthesizer.merge",
-                "tags": ["operation:synthesis", f"agents_merged:{len(contributions)}"],
+                "tags": ["agent:synthesizer", "operation:synthesis", f"agents_merged:{len(contributions)}"],
             },
         )
         merged = response.content or ""

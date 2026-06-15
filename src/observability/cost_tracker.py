@@ -60,6 +60,7 @@ class CostTracker:
     per_query_alert_usd: float = 0.10        # single-call alert threshold
     records: list[CostRecord] = field(default_factory=list)
     alerts: list[str]         = field(default_factory=list)
+    _budget_warned: bool       = False     # edge-trigger flag
 
     # computed property
     @property
@@ -79,12 +80,14 @@ class CostTracker:
                 f"(trace={r.trace_id}, agent={r.agent_name})"
             )
 
-        # Daily budget breach alert (fires at 80%)
-        if self.total_cost_usd > self.daily_budget_usd:
+        # Daily budget warning — edge-triggered: fires ONCE when total crosses
+        # 80% of the daily budget, not on every subsequent call.
+        if not self._budget_warned and self.total_cost_usd > self.daily_budget_usd * 0.8:
             self.alerts.append(
                 f"BUDGET WARNING: ${self.total_cost_usd:.4f} > 80% of "
                 f"${self.daily_budget_usd:.2f} daily budget"
             )
+            self._budget_warned = True
 
 
     # other computed properties
@@ -151,3 +154,4 @@ class CostTracker:
         """Clear all records and alerts (for end-of-day reset)."""
         self.records.clear()
         self.alerts.clear()
+        self._budget_warned = False

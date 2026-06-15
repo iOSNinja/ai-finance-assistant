@@ -5,6 +5,10 @@ import streamlit as st
 from src.main import FinnieAIFinanceAssistant
 from src.utils.logger import setup_logger
 
+# Cost tracking imports
+from src.observability.context import cost_tracker_for_request
+from src.observability.cost_tracker import CostTracker
+
 logger = setup_logger(__name__)
 
 USER_AVATAR = "🧑"
@@ -25,6 +29,21 @@ def _get_assistant() -> FinnieAIFinanceAssistant:
     return st.session_state.assistant
 
 
+# Session-scoped CostTracker
+def _ensure_session_tracker() -> CostTracker:
+    """Create the CostTracker exactly once per Streamlit session and reuse it.
+
+    The tracker accumulates across all chat queries until the user clicks
+    'Start new conversation' (which resets it via the sidebar).
+    """
+    if "cost_tracker" not in st.session_state:
+        st.session_state.cost_tracker = CostTracker(
+            daily_budget_usd=0.005, #5.00,
+            per_query_alert_usd=0.0005, #0.10,
+        )
+    return st.session_state.cost_tracker
+
+
 def _init_state() -> None:
     if "chat_messages" not in st.session_state:
         st.session_state.chat_messages = []
@@ -43,10 +62,15 @@ def _handle_query(user_query: str) -> None:
         st.markdown(user_query)
 
     assistant = _get_assistant()
+    tracker = _ensure_session_tracker()                       
+
     with st.chat_message("assistant", avatar=FINNIE_AVATAR):
         with st.spinner("Researching..."):
             try:
-                response = assistant.ask(user_query, surface="streamlit")
+                # bind the session tracker for the duration of this
+                # graph invocation. Every LLM call inside auto-records to it.
+                with cost_tracker_for_request(tracker=tracker):
+                    response = assistant.ask(user_query, surface="streamlit")
             except Exception as e:
                 logger.exception("Graph invocation failed in chat tab")
                 response = (
