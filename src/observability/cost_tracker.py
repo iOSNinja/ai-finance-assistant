@@ -137,6 +137,8 @@ class CostTracker:
                 "call_count":     n,
                 "total_cost_usd": round(sum(r.cost_usd for r in recs), 6),
                 "avg_cost_usd":   round(sum(r.cost_usd for r in recs) / n, 6),
+                "total_prompt_tokens":    sum(r.prompt_tokens for r in recs),
+                "total_completion_tokens": sum(r.completion_tokens for r in recs),
                 "total_tokens":   sum(r.total_tokens for r in recs),
                 "avg_latency_ms": round(sum(r.latency_ms for r in recs) / n, 1),
                 "cache_hits":     sum(1 for r in recs if r.cache_hit),
