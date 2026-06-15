@@ -1,5 +1,15 @@
 """
 src/observability/cost_tracker.py - Multi-agent cost accounting + budget alerts.
+
+WHAT THIS PROVIDES:
+  - CostRecord  : one immutable observation per LLM call
+  - CostTracker : accumulator + per-agent summary + budget alerts
+
+DESIGN CHOICES:
+  - CostRecord is frozen — observations are facts, never modified post-record
+  - CostTracker is mutable — its whole purpose is to accumulate records
+  - We record AGENT_NAME (not the user's query) per record — keeps PII out
+    of the cost trail. The trace_id is the only handle back to the query.
 """
 
 from __future__ import annotations
@@ -12,7 +22,11 @@ from datetime import datetime, timezone
 # the associated cost tracking is recorded using this CostRecord obj.
 @dataclass(frozen=True, slots=True)
 class CostRecord:
-    """One LLM call's cost + perf observation."""
+    """One LLM call's cost + perf observation.
+    
+    Frozen because an observed measurement is a fact about a past event;
+    mutating it would corrupt history. Slots saves memory at scale.
+    """
 
     trace_id:          str            # LangSmith trace ID for correlation
     agent_name:        str            # "orchestrator", "qa_agent", etc.
@@ -36,7 +50,11 @@ class CostRecord:
 # 2. define CostTracker -> track cost by all LLM calls by the agents & compute summary stats.
 @dataclass
 class CostTracker:
-    """Accumulates CostRecord instances and computes summary stats."""
+    """Accumulates CostRecord instances and computes summary stats.
+    
+    Mutable by design — the whole point is to add records over a session/day.
+    Use 'daily_budget_usd' for a soft cap; alerts fire at 80% breach.
+    """
 
     daily_budget_usd:    float = 5.00        # daily $ceiling for alerts
     per_query_alert_usd: float = 0.10        # single-call alert threshold
