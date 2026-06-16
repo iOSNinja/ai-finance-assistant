@@ -52,6 +52,18 @@ if os.getenv("LANGCHAIN_TRACING_V2", "").lower() == "true":
 
 # Initializations
 openai_client = OpenAI(api_key=OPENAI_API_KEY)
-llm = ChatOpenAI(model=MODEL, temperature=0.2)
-judge_llm = ChatOpenAI(model=JUDEG_MODEL, temperature=0)
 embeddings = OpenAIEmbeddings(model=EMBEDDING_MODEL)
+
+#  Cost Tracking - install one callback on the production LLM
+from src.observability.cost_callback import CostTrackingCallback
+
+# Create the module-level _cost_callback singleton
+_cost_callback = CostTrackingCallback()
+
+llm = ChatOpenAI(
+    model=MODEL, 
+    temperature=0.2,
+    callbacks=[_cost_callback],
+)
+judge_llm = ChatOpenAI(model=JUDEG_MODEL, temperature=0) # no tracking — eval-only
+

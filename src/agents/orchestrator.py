@@ -50,7 +50,7 @@ def orchestrator_node(
         HumanMessage(content=query)],
         config={
             "run_name": "orchestrator.routing_decision",
-            "tags": ["operation:routing"],
+            "tags": ["agent:orchestrator", "operation:routing"],
         },
     )
 
