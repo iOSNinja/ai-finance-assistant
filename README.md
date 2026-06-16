@@ -384,13 +384,87 @@ Final answer:  "An ETF is an Exchange-Traded Fund that..."   ← what user sees
 
 Every guard event logs structured metadata (`guard_type`, `category`, `pattern_matched`, `entity_types`) for audit via LangSmith. Run `tests/eval/run_eval.py guardrails` to verify guards still fire correctly after any change.
 
-### 4. Cost Optimization 🚧 *In active development*
+### 4. 💰 Cost Optimization
 
-- `tiktoken` for local token counting (no API call needed)
-- `get_openai_callback` for measuring per-query spend
-- Semantic cache for repeated queries (embed query → if similarity ≥ 0.95 to cached query → return cached answer)
-- Model routing — cheaper model (`gpt-4o-mini`) for orchestrator + synthesizer; `gpt-4o` only where depth matters
-- Before/after metrics on a representative query set
+Production-grade cost discipline applied to every LLM call. Three layers of instrumentation feed a live dashboard in the Streamlit sidebar: per-agent spend tracking, semantic response caching, and a calibrated threshold backed by a labeled evaluation dataset.
+
+### What's instrumented
+
+| Layer | Where it lives | What it does |
+|---|---|---|
+| **Pre-flight token estimation** | `src/observability/token_counter.py` | `tiktoken`-based input counting + heuristic output estimation + per-model pricing table; returns immutable `TokenEstimate` |
+| **Per-call cost tracking** | `src/observability/cost_tracker.py` | Immutable `CostRecord` per LLM call; mutable `CostTracker` accumulator with per-agent breakdown + edge-triggered budget alerts |
+| **Zero-touch capture** | `src/observability/cost_callback.py` + `context.py` | LangChain `BaseCallbackHandler` reads `tags=["agent:qa", ...]` and pushes into a `ContextVar`-bound tracker — no agent code touched |
+| **Semantic response cache** | `src/observability/semantic_cache.py` | Embedding-similarity lookup with NumPy-vectorized cosine similarity, TTL, FIFO eviction, thread-safe `Lock` |
+| **Threshold calibration** | `tests/eval/cache_calibration/` | 30 labeled query pairs + parameter sweep + zero-FP-first recommendation policy |
+
+### Per-agent cost tracking
+
+Every LLM call across the graph — orchestrator routing, all six specialist agents, synthesizer merge — is captured automatically. The `CostTrackingCallback` is attached once to the production `ChatOpenAI` in `src/core/config.py`; from then on every call fires `on_llm_end` with the call's `tags`, which the callback reads to identify the source agent. Per-request scoping uses Python `ContextVar` (async-task-safe — survives LangGraph's parallel `Send()` dispatch).
+
+Records include `prompt_tokens`, `completion_tokens`, `cost_usd`, `latency_ms`, agent name, and a LangSmith trace ID. `CostRecord` is frozen (observations of past events shouldn't be mutated); `CostTracker` is mutable (the whole point is to accumulate).
+
+### Live cost panel
+
+The Streamlit sidebar surfaces running stats:
+
+- **KPI tiles** — LLM calls, total spent, avg per call, cache hit rate, saved by cache
+- **Per-agent breakdown** — calls / cost / tokens / latency per agent in a collapsible expander
+- **Cache details** — hits, misses, hit rate, entries, threshold, TTL
+- **Alerts** — edge-triggered budget warnings + per-call HIGH COST alerts (each fires once on threshold crossing, not on every subsequent call — avoids alert fatigue)
+
+Costs render in **magnitude-aware notation**: amounts under $0.01 show as cents with 4 decimals (`0.0594¢`) for readability at typical per-query spend; above $0.01 switches to dollar notation.
+
+### Semantic response cache
+
+Cache-aside pattern: every query first checks the cache; misses run the graph and store the result; hits return the stored response with **zero LLM cost**.
+
+| Setting | Value | Why |
+|---|---|---|
+| Embedding model | `text-embedding-3-small` | Same as the RAG pipeline — one set of vectors, one bill |
+| Similarity metric | Cosine, NumPy-vectorized | Single matrix multiply for N entries vs N Python loops (≈50-100× faster) |
+| TTL | 1 hour | Bounds staleness for market-data-adjacent queries |
+| Max size | 100 entries | FIFO eviction when full |
+| Thread safety | `threading.Lock` around in-memory ops | Streamlit re-runs concurrently; embedding call runs OUTSIDE the lock to preserve concurrency |
+| Saved-$ attribution | Cost-to-compute stored on each entry; hits accumulate savings | Sidebar tile shows real $ saved, not an estimate |
+
+### Threshold calibration
+
+Threshold selection isn't a guess. `tests/eval/cache_calibration/` ships a **30-pair labeled dataset** (equivalent / similar-but-distinct / unrelated) plus a sweep script that:
+
+1. Embeds every unique query once (re-uses across thresholds — avoids ~360 redundant API calls on the sweep)
+2. Sweeps thresholds 0.40 → 0.95 in 0.05 steps
+3. At each threshold, computes the confusion matrix → precision / recall / F1
+4. Recommends the highest threshold satisfying **zero false positives AND recall ≥ 70%**
+
+Recommendation policy reflects the domain: false positives in finance mean wrong answers to users, so safety beats hit rate. The calibration runs against the actual embedding model and reports per-threshold metrics; the recommended value is documented inline in `chat.py` next to its calibration source.
+
+Run with:
+
+```bash
+uv run python -m tests.eval.cache_calibration.calibrate
+```
+
+### Numbers from a typical session
+
+| Metric | Range |
+|---|---|
+| Cost per single-agent query | ~$0.0004–$0.0008 (a fraction of a cent) |
+| Cost per multi-agent fan-out (3 agents) | ~$0.002–$0.005 |
+| Cache hit rate after a few paraphrases | ~20-50% in dev sessions |
+| $ saved per cache hit | Equal to the query's original compute cost |
+| Latency saved per cache hit | ~2-5 seconds (zero LLM round-trips) |
+
+Default budgets: $5.00 daily, $0.10 per-call alert. Both configurable per-session.
+
+### Engineering notes
+
+- **Defense in depth on observability** — the tracker captures cost per LLM call; the cache captures cost per query saved. Combined view in the sidebar shows both "we spent" and "we would have spent without the cache."
+- **Graceful degradation** — the cache lookup is wrapped in `try/except` so an embedding API outage or rate limit silently falls through to the graph. The user always gets an answer.
+- **Snapshot-delta cost attribution** — to record cost-to-compute on a cache `put()`, the chat handler snapshots the tracker's total before and after the graph call. The delta is what THIS query cost. Robust to mid-query failures.
+- **Edge-triggered alerts** — budget warning fires ONCE when cumulative spend first crosses 80% of the daily budget; reset on "Start new conversation." Avoids the classic alert-fatigue pattern where every subsequent call re-emits the same warning.
+- **Zero touch to agent code** — all instrumentation happens via callbacks, ContextVars, and decorators. None of the six specialist agents know cost tracking exists.
+
 
 ---
 
@@ -493,7 +567,7 @@ In a new conversation, the 🔌 menu will show `finnie · 9 tools, 2 prompts`. T
 | ✅ | Evaluation framework — 5 suites covering routing/retrieval/generation/guardrails |
 | ✅ | Input + output guardrails — regex / Moderation / LLM classifier / Presidio |
 | ✅ | MCP server — expose Finnie's tools via Model Context Protocol |
-| 🚧 | Cost optimization — token tracking, semantic cache, per-query spend reporting |
+| ✅ | Cost optimization — token tracking, semantic cache, per-query spend reporting |
 | 🚧 | Cloud deployment — publicly accessible demo |
 | 🚧 | Demo video |
 
@@ -522,6 +596,7 @@ Selected highlights:
 - **Layered evaluation > single accuracy score** — each layer (routing, retrieval, generation, guardrails) catches different bugs. Faithfulness eval surfaced a "citation lie" pattern where the LLM produced correct answers cited to chunks that didn't support them — invisible to correctness alone.
 - **Eval-design discipline matters as much as system design** — paraphrased prompt examples (not verbatim eval queries) prevent measuring memorization; LLM-as-judge uses a stronger model than the generator to avoid self-approval bias.
 - **Guardrails as code, not as prompt instructions** — a prompt that says "don't leak PII" is a suggestion; a regex + Presidio guard is a guarantee. Generic safe fallback (same message every block) prevents attackers from probing for bypasses.
+- **Cost discipline is an engineering pattern, not a flag** — production cost control means callbacks that observe without touching code, ContextVars that scope per-request safely across async, edge-triggered alerts that don't drown operators, and calibration scripts that prove thresholds instead of guessing them.
 
 ---
 
