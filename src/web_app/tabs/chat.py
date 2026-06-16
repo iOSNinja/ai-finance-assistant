@@ -5,9 +5,10 @@ import streamlit as st
 from src.main import FinnieAIFinanceAssistant
 from src.utils.logger import setup_logger
 
-# Cost tracking imports
 from src.observability.context import cost_tracker_for_request
 from src.observability.cost_tracker import CostTracker
+from src.observability.semantic_cache import SemanticCache
+from src.core.config import embeddings
 
 logger = setup_logger(__name__)
 
@@ -29,19 +30,30 @@ def _get_assistant() -> FinnieAIFinanceAssistant:
     return st.session_state.assistant
 
 
-# Session-scoped CostTracker
 def _ensure_session_tracker() -> CostTracker:
-    """Create the CostTracker exactly once per Streamlit session and reuse it.
-
-    The tracker accumulates across all chat queries until the user clicks
-    'Start new conversation' (which resets it via the sidebar).
-    """
     if "cost_tracker" not in st.session_state:
         st.session_state.cost_tracker = CostTracker(
-            daily_budget_usd=0.005, #5.00,
-            per_query_alert_usd=0.0005, #0.10,
+            daily_budget_usd=5.00,
+            per_query_alert_usd=0.10,
         )
     return st.session_state.cost_tracker
+
+
+# session-scoped SemanticCache
+def _ensure_session_cache() -> SemanticCache:
+    """One SemanticCache per Streamlit chat session.
+
+    Threshold is calibrated against text-embedding-3-small.
+    Cache lives in memory only; cleared on 'Start new conversation'.
+    """
+    if "semantic_cache" not in st.session_state:
+        st.session_state.semantic_cache = SemanticCache(
+            embeddings=embeddings,
+            threshold=0.60,
+            ttl_seconds=3600.0,    # 1 hour
+            max_size=100,
+        )
+    return st.session_state.semantic_cache
 
 
 def _init_state() -> None:
@@ -62,15 +74,50 @@ def _handle_query(user_query: str) -> None:
         st.markdown(user_query)
 
     assistant = _get_assistant()
-    tracker = _ensure_session_tracker()                       
+    tracker = _ensure_session_tracker()
+    cache = _ensure_session_cache()
 
     with st.chat_message("assistant", avatar=FINNIE_AVATAR):
         with st.spinner("Researching..."):
             try:
-                # bind the session tracker for the duration of this
-                # graph invocation. Every LLM call inside auto-records to it.
-                with cost_tracker_for_request(tracker=tracker):
-                    response = assistant.ask(user_query, surface="streamlit")
+                # CACHE-ASIDE PATTERN
+                # 1. Try the cache first. Graceful degradation: if the cache
+                #    call itself fails, treat it as a miss and run the graph.
+                try:
+                    cached_response = cache.get(user_query)
+                except Exception as cache_err:
+                    logger.warning(
+                        "Cache get failed — falling back to graph",
+                        extra={"error_type": type(cache_err).__name__,
+                               "error": str(cache_err)[:200]},
+                    )
+                    cached_response = None
+
+                if cached_response is not None:
+                    # 2. Cache HIT — return immediately. Zero LLM cost.
+                    response = cached_response
+                    logger.info("Cache hit", extra={
+                        "query_preview": user_query[:60],
+                        "hit_rate": cache.hit_rate,
+                    })
+                else:
+                    # 3. Cache MISS — snapshot cost, run graph, then store.
+                    cost_before = tracker.total_cost_usd
+                    with cost_tracker_for_request(tracker=tracker):
+                        response = assistant.ask(user_query, surface="streamlit")
+                    query_cost = tracker.total_cost_usd - cost_before
+
+                    # 4. Write-through: store result + its cost (for $ saved math).
+                    try:
+                        cache.put(user_query, response,
+                                  cost_to_compute_usd=query_cost)
+                    except Exception as cache_err:
+                        # Cache put failure is also non-fatal — just log it.
+                        logger.warning(
+                            "Cache put failed — response delivered anyway",
+                            extra={"error_type": type(cache_err).__name__,
+                                   "error": str(cache_err)[:200]},
+                        )
             except Exception as e:
                 logger.exception("Graph invocation failed in chat tab")
                 response = (
@@ -86,10 +133,8 @@ def _handle_query(user_query: str) -> None:
 def render() -> None:
     _init_state()
 
-    # Conversation history
     _render_history()
 
-    # Empty state: show prompt suggestions
     if not st.session_state.chat_messages:
         st.markdown(
             '<div class="section-eyebrow">Try a starter question</div>',
@@ -102,7 +147,6 @@ def render() -> None:
                     _handle_query(prompt)
                     st.rerun()
 
-    # Chat input — always at bottom
     if user_query := st.chat_input("Ask Finnie anything about finance..."):
         _handle_query(user_query)
         st.rerun()

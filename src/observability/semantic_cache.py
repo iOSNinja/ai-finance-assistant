@@ -37,6 +37,7 @@ class CacheEntry:
     query:      str
     embedding:  np.ndarray            # shape (D,) — typically 1536 for OpenAI small
     result:     Any                   # whatever the graph returns
+    cost_to_compute_usd:   float = 0.0   # what this entry cost when computed
     created_at: float = field(default_factory=time.monotonic)
     hit_count:  int   = 0             # increment each time this entry serves a hit
 
@@ -61,6 +62,7 @@ class SemanticCache:
         self._lock = Lock()
         self.hits = 0
         self.misses = 0
+        self.total_saved_usd: float = 0.0   # cumulative $ saved by hits
 
     # Public API
     def get(self, query: str) -> Any | None:
@@ -86,20 +88,31 @@ class SemanticCache:
                 entry = self._entries[best_idx]
                 entry.hit_count += 1
                 self.hits += 1
+                self.total_saved_usd += entry.cost_to_compute_usd 
                 return entry.result
 
             self.misses += 1
             return None
 
-    def put(self, query: str, result: Any) -> None:
-        """Store '(query, result)'. Evicts oldest entry if at capacity."""
+    def put(self, query: str, result: Any, cost_to_compute_usd: float = 0.0) -> None:
+        """Store '(query, result)'. Evicts oldest entry if at capacity.
+
+        Args:
+            cost_to_compute_usd: How much it cost to originally compute this result.
+                On future hits, this amount is added to 'self.total_saved_usd'.
+                Default 0 if you don't care about saved-$ accounting.
+        """
         embedding = self._embed(query)
-        entry = CacheEntry(query=query, embedding=embedding, result=result)
+        entry = CacheEntry(
+            query=query,
+            embedding=embedding,
+            result=result,
+            cost_to_compute_usd=cost_to_compute_usd,
+        )
         now = time.monotonic()
 
         with self._lock:
             self._evict_expired(now)
-            # FIFO eviction when at capacity (oldest entry goes first)
             if len(self._entries) >= self.max_size:
                 self._entries.pop(0)
             self._entries.append(entry)
@@ -110,6 +123,7 @@ class SemanticCache:
             self._entries.clear()
             self.hits = 0
             self.misses = 0
+            self.total_saved_usd = 0.0 
 
     # Read-only properties
     @property
@@ -131,6 +145,7 @@ class SemanticCache:
                 "misses":       self.misses,
                 "hit_rate":     self.hit_rate,
                 "entries":      len(self._entries),
+                "total_saved_usd":  self.total_saved_usd,
                 "max_size":     self.max_size,
                 "threshold":    self.threshold,
                 "ttl_seconds":  self.ttl_seconds,

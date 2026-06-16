@@ -100,56 +100,74 @@ def _format_cost(usd: float) -> str:
         return f"${usd:.4f}"           # e.g. $0.0234
     return f"${usd:,.2f}"              # e.g. $1.23 or $1,234.56
 
-
 def _render_cost_panel() -> None:
-    """Render live cost stats from the session's CostTracker.
-
-    Reads st.session_state.cost_tracker (set per chat session in chat.py).
-    Shows top-level KPIs as st.metric tiles + a per-agent breakdown expander +
-    an alerts expander (if any alerts fired).
-    """
+    """Render live cost stats + cache stats from the session state."""
     tracker = st.session_state.get("cost_tracker")
-    if tracker is None or tracker.total_calls == 0:
+    cache = st.session_state.get("semantic_cache")
+
+    if (tracker is None or tracker.total_calls == 0) and (cache is None or cache.hits + cache.misses == 0):
         st.caption("Send a chat query to see cost breakdown.")
         return
 
-    # Top-level KPI tiles (2x2 grid)
-    # Single-column layout — each tile gets the full sidebar width, so
-    # precise dollar values like $0.000912 fit without truncation.
-    st.metric("LLM calls", tracker.total_calls)
-    st.metric("Total spent", _format_cost(tracker.total_cost_usd))
-    st.metric("Avg / call",  _format_cost(tracker.avg_cost_per_call_usd))
-    st.metric("Cache hit rate", f"{tracker.cache_hit_rate:.0%}")
+    # KPI tiles
+    if tracker is not None and tracker.total_calls > 0:
+        st.metric("LLM calls", tracker.total_calls)
+        st.metric("Total spent", _format_cost(tracker.total_cost_usd))
+        st.metric("Avg / call",  _format_cost(tracker.avg_cost_per_call_usd))
 
-    # Per-agent breakdown (collapsed by default)
-    with st.expander("Per-agent breakdown"):
-        summary = tracker.per_agent_summary()
-        if not summary:
-            st.caption("No data yet.")
-        else:
-            for agent, stats in sorted(summary.items()):
-                st.markdown(
-                    f"**{agent}** &nbsp;·&nbsp; "
-                    f"{stats['call_count']} call{'s' if stats['call_count'] != 1 else ''} "
-                    f"&nbsp;·&nbsp; ${stats['total_cost_usd']:.6f} "
-                    f"&nbsp;·&nbsp; in={stats['total_prompt_tokens']} "
-                    f"out={stats['total_completion_tokens']} "
-                    f"&nbsp;·&nbsp; {stats['avg_latency_ms']:.0f}ms avg",
-                    unsafe_allow_html=True,
-                )
+    # Cache tiles (only render if cache has activity)
+    if cache is not None and (cache.hits + cache.misses) > 0:
+        st.metric("Cache hit rate", f"{cache.hit_rate:.0%}")
+        st.metric("Saved by cache", _format_cost(cache.total_saved_usd))
+    else:
+        st.metric("Cache hit rate", "0%")
 
-    # Alerts panel (only shown if any alerts fired)
-    if tracker.alerts:
+    # Per-agent breakdown
+    if tracker is not None and tracker.total_calls > 0:
+        with st.expander("Per-agent breakdown"):
+            summary = tracker.per_agent_summary()
+            if not summary:
+                st.caption("No data yet.")
+            else:
+                for agent, stats in sorted(summary.items()):
+                    st.markdown(
+                        f"**{agent}** &nbsp;·&nbsp; "
+                        f"{stats['call_count']} call{'s' if stats['call_count'] != 1 else ''} "
+                        f"&nbsp;·&nbsp; ${stats['total_cost_usd']:.6f} "
+                        f"&nbsp;·&nbsp; in={stats['total_prompt_tokens']} "
+                        f"out={stats['total_completion_tokens']} "
+                        f"&nbsp;·&nbsp; {stats['avg_latency_ms']:.0f}ms avg",
+                        unsafe_allow_html=True,
+                    )
+
+    # Cache details
+    if cache is not None and (cache.hits + cache.misses) > 0:
+        with st.expander("Cache details"):
+            s = cache.stats()
+            st.markdown(
+                f"**Hits**: {s['hits']} &nbsp;·&nbsp; "
+                f"**Misses**: {s['misses']} &nbsp;·&nbsp; "
+                f"**Hit rate**: {s['hit_rate']:.1%}<br/>"
+                f"**Entries**: {s['entries']}/{s['max_size']} &nbsp;·&nbsp; "
+                f"**Threshold**: {s['threshold']:.2f} &nbsp;·&nbsp; "
+                f"**TTL**: {int(s['ttl_seconds'])}s",
+                unsafe_allow_html=True,
+            )
+
+    # Alerts
+    if tracker is not None and tracker.alerts:
         with st.expander(f"⚠️ Alerts ({len(tracker.alerts)})", expanded=True):
             for alert in tracker.alerts:
                 st.warning(alert, icon="⚠️")
 
 
 def _reset_conversation() -> None:
-    """Clear chat history AND reset accumulated cost tracking."""
+    """Clear chat history, cost tracker, AND semantic cache."""
     if "chat_messages" in st.session_state:
         st.session_state.chat_messages = []
     if "cost_tracker" in st.session_state:
         st.session_state.cost_tracker.reset()
+    if "semantic_cache" in st.session_state:  
+        st.session_state.semantic_cache.clear()
     if "assistant" in st.session_state:
         st.session_state.assistant._new_session()
