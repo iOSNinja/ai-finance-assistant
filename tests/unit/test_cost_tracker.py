@@ -1,5 +1,5 @@
 """
-unit tests for CostTracker 
+Unit tests for CostTracker — accumulator, per-agent breakdown, edge-triggered alerts.
 """
 
 from __future__ import annotations
@@ -8,6 +8,8 @@ from src.observability.cost_tracker import CostRecord
 import pytest
 
 class TestCostTrackerAccumulation:
+    """Verifies CostTracker correctly accumulates records and properties."""
+
     def test_empty_tracker_has_zero_stats(self, fresh_tracker):
         assert fresh_tracker.total_calls == 0
         assert fresh_tracker.total_cost_usd == 0.0
@@ -27,6 +29,8 @@ class TestCostTrackerAccumulation:
         assert fresh_tracker.avg_cost_per_call_usd == pytest.approx(0.001)
 
 class TestPerAgentSummary:
+    """Verifies per_agent_summary() correctly groups records by agent_name."""
+
     def test_groups_by_agent(self, fresh_tracker, make_record):
         fresh_tracker.record(make_record(agent_name="qa", cost_usd=0.001))
         fresh_tracker.record(make_record(agent_name="qa", cost_usd=0.002))
@@ -40,6 +44,8 @@ class TestPerAgentSummary:
         assert summary["tax"]["total_cost_usd"] == pytest.approx(0.005)
 
 class TestEdgeTriggeredAlerts:
+    """Verifies budget alert fires ONCE per crossing, not on every subsequent call."""
+
     def test_budget_warning_fires_once(self, tight_budget_tracker, make_record):
         # Each call costs $0.0005 — 0.1¢ budget threshold is 80% = $0.0008
         # After 2 calls (0.0010), we've crossed the threshold
