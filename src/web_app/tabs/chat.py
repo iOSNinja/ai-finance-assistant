@@ -49,7 +49,7 @@ def _ensure_session_cache() -> SemanticCache:
     if "semantic_cache" not in st.session_state:
         st.session_state.semantic_cache = SemanticCache(
             embeddings=embeddings,
-            threshold=0.60,
+            threshold=0.75,        # Calibrated against 39 labeled pairs; zero FPs at 83% recal
             ttl_seconds=3600.0,    # 1 hour
             max_size=100,
         )
