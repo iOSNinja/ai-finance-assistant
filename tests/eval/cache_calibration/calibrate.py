@@ -11,12 +11,14 @@ What it does:
 Run with:
     uv run python -m tests.eval.cache_calibration.calibrate
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import numpy as np
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from src.core.config import embeddings
@@ -26,11 +28,12 @@ from tests.eval.cache_calibration.dataset import PAIRS, CalibrationPair
 @dataclass(frozen=True, slots=True)
 class ThresholdResult:
     """Confusion matrix + derived metrics at a single threshold."""
+
     threshold: float
-    tp: int           # equivalent pairs correctly hit
-    fp: int           # distinct/unrelated pairs incorrectly hit (DANGER)
-    tn: int           # distinct/unrelated pairs correctly missed
-    fn: int           # equivalent pairs incorrectly missed (slow but safe)
+    tp: int  # equivalent pairs correctly hit
+    fp: int  # distinct/unrelated pairs incorrectly hit (DANGER)
+    tn: int  # distinct/unrelated pairs correctly missed
+    fn: int  # equivalent pairs incorrectly missed (slow but safe)
 
     @property
     def precision(self) -> float:
@@ -72,15 +75,13 @@ def calibrate(
 
     print(f"Embedding {len(unique_queries)} unique queries...")
     query_to_vec: dict[str, np.ndarray] = {
-        q: np.array(embeddings.embed_query(q), dtype=np.float32)
-        for q in unique_queries
+        q: np.array(embeddings.embed_query(q), dtype=np.float32) for q in unique_queries
     }
     print(f"  done. (cost: ~${len(unique_queries) * 0.00002:.5f} for text-embedding-3-small)")
 
     # Compute similarity for every labeled pair (threshold-independent)
     pair_sims: list[tuple[CalibrationPair, float]] = [
-        (p, _cosine(query_to_vec[p.query_a], query_to_vec[p.query_b]))
-        for p in pairs
+        (p, _cosine(query_to_vec[p.query_a], query_to_vec[p.query_b])) for p in pairs
     ]
 
     # For each threshold, classify every pair → fill confusion matrix
@@ -89,11 +90,15 @@ def calibrate(
         tp = fp = tn = fn = 0
         for pair, sim in pair_sims:
             predicted_hit = sim >= threshold
-            should_hit = (pair.label == "equivalent")
-            if predicted_hit and should_hit:    tp += 1
-            elif predicted_hit and not should_hit: fp += 1
-            elif not predicted_hit and not should_hit: tn += 1
-            elif not predicted_hit and should_hit: fn += 1
+            should_hit = pair.label == "equivalent"
+            if predicted_hit and should_hit:
+                tp += 1
+            elif predicted_hit and not should_hit:
+                fp += 1
+            elif not predicted_hit and not should_hit:
+                tn += 1
+            elif not predicted_hit and should_hit:
+                fn += 1
         results.append(ThresholdResult(threshold, tp, fp, tn, fn))
 
     return results
@@ -111,7 +116,7 @@ def recommend_threshold(
     """
     safe = [r for r in results if r.fp == 0 and r.recall >= min_recall]
     if safe:
-        return max(safe, key=lambda r: r.threshold)   # highest safe threshold (most conservative)
+        return max(safe, key=lambda r: r.threshold)  # highest safe threshold (most conservative)
     # No threshold meets both criteria — recommend best F1 instead, with a warning
     return max(results, key=lambda r: r.f1)
 
@@ -120,8 +125,10 @@ def print_report(results: list[ThresholdResult], recommended: ThresholdResult) -
     """Tabular report + recommendation."""
     print()
     print("=" * 80)
-    print(f"{'Threshold':>10}  {'TP':>4}  {'FP':>4}  {'TN':>4}  {'FN':>4}  "
-          f"{'Precision':>10}  {'Recall':>8}  {'F1':>6}  {'Verdict':>8}")
+    print(
+        f"{'Threshold':>10}  {'TP':>4}  {'FP':>4}  {'TN':>4}  {'FN':>4}  "
+        f"{'Precision':>10}  {'Recall':>8}  {'F1':>6}  {'Verdict':>8}"
+    )
     print("-" * 80)
     for r in results:
         verdict = ""
@@ -131,14 +138,18 @@ def print_report(results: list[ThresholdResult], recommended: ThresholdResult) -
             verdict = "(unsafe)"
         elif r.recall < 0.50:
             verdict = "(low recall)"
-        print(f"{r.threshold:>10.2f}  {r.tp:>4}  {r.fp:>4}  {r.tn:>4}  {r.fn:>4}  "
-              f"{r.precision:>10.2f}  {r.recall:>8.2f}  {r.f1:>6.2f}  {verdict:>8}")
+        print(
+            f"{r.threshold:>10.2f}  {r.tp:>4}  {r.fp:>4}  {r.tn:>4}  {r.fn:>4}  "
+            f"{r.precision:>10.2f}  {r.recall:>8.2f}  {r.f1:>6.2f}  {verdict:>8}"
+        )
     print("=" * 80)
     print()
     print("RECOMMENDATION")
     print(f"  Use threshold = {recommended.threshold:.2f}")
-    print(f"  Expected behavior:")
-    print(f"    • Catches {recommended.tp}/{recommended.tp + recommended.fn} legitimate paraphrases ({recommended.recall:.0%} recall)")
+    print("  Expected behavior:")
+    print(
+        f"    • Catches {recommended.tp}/{recommended.tp + recommended.fn} legitimate paraphrases ({recommended.recall:.0%} recall)"
+    )
     print(f"    • Wrong answers to user: {recommended.fp} (FALSE POSITIVES)")
     print(f"    • Misses {recommended.fn} paraphrases (slower but correct)")
     print()

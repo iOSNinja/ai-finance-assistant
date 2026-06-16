@@ -1,5 +1,5 @@
 """
-src/agents/qa/agent.py - Q&A agent node, tools and routing edge. Uses qa tool to answer user queries 
+src/agents/qa/agent.py - Q&A agent node, tools and routing edge. Uses qa tool to answer user queries
 related to finance, portfolio, market data, goal planning & general questions.
 
 Uses LangGraph conditional edges instead of a manual tool-calling loop.
@@ -13,21 +13,22 @@ State channels used by this node:
 - qa_response - final text answer
 - user_query - original query
 """
+
 from typing import Literal
 
 from langchain_core.messages import (
-    SystemMessage,
-    HumanMessage,
     AIMessage,
     AnyMessage,
+    HumanMessage,
+    SystemMessage,
 )
 from langgraph.prebuilt import ToolNode
 
-from src.utils.logger import setup_logger
-from src.core.config import llm
-from src.agents.qa.tool import qa_tools_list
-from src.state import FinnieState
 from src.agents.prompts import QA_AGENT_PROMPT
+from src.agents.qa.tool import qa_tools_list
+from src.core.config import llm
+from src.state import FinnieState
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.agents.qa.agent")
 
@@ -41,7 +42,8 @@ qa_tools_node = ToolNode(
     messages_key="qa_messages",
 )
 
-MAX_AGENT_ITERATIONS = 5 # to prevent the agent from making infinite tool_calling
+MAX_AGENT_ITERATIONS = 5  # to prevent the agent from making infinite tool_calling
+
 
 # 3. defining the qa_agent_node which runs the ReAct loop
 def qa_agent_node(state: FinnieState) -> dict:
@@ -79,7 +81,7 @@ def qa_agent_node(state: FinnieState) -> dict:
         # return fallback message in qa_messages & qa_response
         logger.warning(
             "QA agent hit MAX_AGENT_ITERATIONS - forcing fallback",
-            extra={"max_iterations": MAX_AGENT_ITERATIONS}
+            extra={"max_iterations": MAX_AGENT_ITERATIONS},
         )
 
         fallback = (
@@ -87,11 +89,8 @@ def qa_agent_node(state: FinnieState) -> dict:
             "Please try rephrasing your question or ask about a different topic."
         )
 
-        return {
-            "qa_messages": [AIMessage(content=fallback)],
-            "qa_response": fallback
-        }
-   
+        return {"qa_messages": [AIMessage(content=fallback)], "qa_response": fallback}
+
     # logger.info(
     #    "QA agent: invoking LLM | history_len=%d, loop_cnt=%d",
     #    len(qa_msgs),
@@ -99,12 +98,12 @@ def qa_agent_node(state: FinnieState) -> dict:
     # )
 
     logger.info(
-       "QA agent: invoking LLM",
-       extra={
-           "agent": "qa",
-           "history_len": len(qa_msgs),
-           "ai_turns": loop_cnt,
-       }
+        "QA agent: invoking LLM",
+        extra={
+            "agent": "qa",
+            "history_len": len(qa_msgs),
+            "ai_turns": loop_cnt,
+        },
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -117,7 +116,9 @@ def qa_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("QA agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
+        logger.error(
+            "QA agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)}
+        )
         # return error message in qa_messages & qa_response
         err = (
             "QA agent ran into an issue while answering. Please retry or rephrase your question.",
@@ -128,19 +129,23 @@ def qa_agent_node(state: FinnieState) -> dict:
             "qa_response": err,
         }
 
-
     # If LLM response has tool_calls → only update qa_messages; the conditional edge will route to qa_tools_node
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"qa_messages": [response]}
 
     if has_tools:
-        logger.info("QA agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
+        logger.info(
+            "QA agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)}
+        )
     else:
         # If response is plain text → update qa_messages AND set qa_response; the conditional edge will route to synthesizer_node
         update["qa_response"] = response.content or ""
-        logger.info("QA agent produced final answer", extra={"response_len": len(update["qa_response"])})
+        logger.info(
+            "QA agent produced final answer", extra={"response_len": len(update["qa_response"])}
+        )
 
     return update
+
 
 # 4. Check if conditional edge should continue to tool_calling loop or route to synthesizer node
 def should_continue_qa(state: FinnieState) -> Literal["qa_tools_node", "synthesizer_node"]:
@@ -148,7 +153,7 @@ def should_continue_qa(state: FinnieState) -> Literal["qa_tools_node", "synthesi
     qa_msgs = state.get("qa_messages", [])
     if not qa_msgs:
         return "synthesizer_node"
-    
+
     last_msg = qa_msgs[-1]
     if isinstance(last_msg, AIMessage) and getattr(last_msg, "tool_calls", None):
         return "qa_tools_node"

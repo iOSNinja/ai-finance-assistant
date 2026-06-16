@@ -5,15 +5,17 @@ returns a dict of outputs INCLUDING intermediate state (route, agent responses)
 that evaluators need to score against expected values.
 """
 
-import uuid
 import json
+import uuid
 from typing import Any
+
+from langchain_core.messages import ToolMessage
 
 from src.utils.logger import setup_logger
 from src.workflow.graph import build_graph
-from langchain_core.messages import ToolMessage
 
 logger = setup_logger(__name__)
+
 
 def _extract_chunks_from_messages(messages: list) -> list[dict]:
     """Walk an agent's messages, find RAG-tool results, parse chunks.
@@ -23,7 +25,7 @@ def _extract_chunks_from_messages(messages: list) -> list[dict]:
     and tax_education_search return list[dict] — we deserialize and flatten.
     """
     chunks = []
-    for msg in (messages or []):
+    for msg in messages or []:
         if not isinstance(msg, ToolMessage):
             continue
         tool_name = getattr(msg, "name", "")
@@ -40,30 +42,31 @@ def _extract_chunks_from_messages(messages: list) -> list[dict]:
             continue
     return chunks
 
+
 def _build_initial_state(query: str) -> dict:
     """Reset all per-agent buffers. Same shape as main.py's ask() does."""
     return {
-        "user_query":         query,
-        "route":              [],
-        "is_finance_query":   True,
-        "qa_messages":        [],
-        "tax_messages":       [],
-        "goal_messages":      [],
+        "user_query": query,
+        "route": [],
+        "is_finance_query": True,
+        "qa_messages": [],
+        "tax_messages": [],
+        "goal_messages": [],
         "portfolio_messages": [],
-        "market_messages":    [],
-        "news_messages":      [],
-        "qa_response":        "",
-        "tax_response":       "",
-        "goal_response":      "",
+        "market_messages": [],
+        "news_messages": [],
+        "qa_response": "",
+        "tax_response": "",
+        "goal_response": "",
         "portfolio_response": "",
-        "market_response":    "",
-        "news_response":      "",
-        "final_answer":       "",
-        "is_safe_input":      True,
+        "market_response": "",
+        "news_response": "",
+        "final_answer": "",
+        "is_safe_input": True,
         "input_block_reason": "",
         "input_block_category": "ok",
-        "pii_redactions":       [],
-        "input_redactions":     [],
+        "pii_redactions": [],
+        "input_redactions": [],
     }
 
 
@@ -76,11 +79,12 @@ class FinnieEvalWrapper:
         # Pre-warm Presidio so first eval example doesn't pay the
         # ~5-10s spaCy model load cost (compresses P99 latency)
         from src.guardrails.pii import _get_engines
+
         _get_engines()
         logger.info("Presidio warmed up")
 
     def __call__(self, inputs: dict[str, Any]) -> dict[str, Any]:
-        """Invoke the graph and return the fields evaluators care about. 
+        """Invoke the graph and return the fields evaluators care about.
 
         LangSmith calls this func with {"query": "...} per example in the dataset.
         """
@@ -102,24 +106,24 @@ class FinnieEvalWrapper:
         except Exception as e:
             logger.error("Eval invocation failed: %s: %s", type(e).__name__, e)
             return {
-                "route":              [],
-                "final_answer":       f"[ERROR] {type(e).__name__}: {e}",
-                "qa_response":        "",
-                "tax_response":       "",
-                "goal_response":      "",
+                "route": [],
+                "final_answer": f"[ERROR] {type(e).__name__}: {e}",
+                "qa_response": "",
+                "tax_response": "",
+                "goal_response": "",
                 "portfolio_response": "",
-                "market_response":    "",
-                "news_response":      "",
-                "chunks":             [],
-                "chunk_count":        0,
-                "error":              True,
-                "is_safe_input":      True,
+                "market_response": "",
+                "news_response": "",
+                "chunks": [],
+                "chunk_count": 0,
+                "error": True,
+                "is_safe_input": True,
                 "input_block_reason": "",
                 "input_block_category": "ok",
-                "pii_redactions":       [],
-                "input_redactions":     [],
+                "pii_redactions": [],
+                "input_redactions": [],
             }
-        
+
         # extract chunks from each agent's tool messages
         all_chunks = []
         for msg_key in ("qa_messages", "tax_messages"):
@@ -127,20 +131,20 @@ class FinnieEvalWrapper:
 
         # Return the fields evaluators care about
         return {
-            "route":              final.get("route", []),
-            "final_answer":       final.get("final_answer", ""),
-            "qa_response":        final.get("qa_response", ""),
-            "tax_response":       final.get("tax_response", ""),
-            "goal_response":      final.get("goal_response", ""),
+            "route": final.get("route", []),
+            "final_answer": final.get("final_answer", ""),
+            "qa_response": final.get("qa_response", ""),
+            "tax_response": final.get("tax_response", ""),
+            "goal_response": final.get("goal_response", ""),
             "portfolio_response": final.get("portfolio_response", ""),
-            "market_response":    final.get("market_response", ""),
-            "news_response":      final.get("news_response", ""),
-            "chunks":             all_chunks,
-            "chunk_count":        len(all_chunks),
-            "is_finance_query":   final.get("is_finance_query", True),
-            "is_safe_input":        final.get("is_safe_input", True),
-            "input_block_reason":   final.get("input_block_reason", ""),
+            "market_response": final.get("market_response", ""),
+            "news_response": final.get("news_response", ""),
+            "chunks": all_chunks,
+            "chunk_count": len(all_chunks),
+            "is_finance_query": final.get("is_finance_query", True),
+            "is_safe_input": final.get("is_safe_input", True),
+            "input_block_reason": final.get("input_block_reason", ""),
             "input_block_category": final.get("input_block_category", "ok"),
-            "pii_redactions":       final.get("pii_redactions", []),
-            "input_redactions":     final.get("input_redactions", []),
+            "pii_redactions": final.get("pii_redactions", []),
+            "input_redactions": final.get("input_redactions", []),
         }

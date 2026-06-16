@@ -11,18 +11,17 @@ Why a ContextVar (not a global, not a thread-local):
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator
 
 from src.observability.cost_tracker import CostTracker
 
 # The slot that holds the currently-active CostTracker for the running request.
 # Default is None — code outside a 'with cost_tracker_for_request()' block
 # will read None and just skip tracking (zero overhead, no errors).
-_current_tracker: ContextVar[CostTracker | None] = ContextVar(
-    "finnie_cost_tracker", default=None
-)
+_current_tracker: ContextVar[CostTracker | None] = ContextVar("finnie_cost_tracker", default=None)
+
 
 def get_current_tracker() -> CostTracker | None:
     """Read the active tracker for the current request (or None if unbound)."""

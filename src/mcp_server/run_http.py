@@ -22,6 +22,7 @@ USAGE:
   # Custom port / host
   uv run python -m src.mcp_server.run_http --port 9000 --host 127.0.0.1
 """
+
 import argparse
 import sys
 
@@ -65,7 +66,7 @@ def main() -> int:
     if args.check:
         tools = sorted(mcp._tool_manager._tools.keys())
         prompts = sorted(mcp._prompt_manager._prompts.keys())
-        print(f"finnie MCP server OK  (transport=http)")
+        print("finnie MCP server OK  (transport=http)")
         print(f"  tools   ({len(tools)}): {tools}")
         print(f"  prompts ({len(prompts)}): {prompts}")
         return 0
@@ -93,7 +94,7 @@ def main() -> int:
     print(f"finnie MCP server  (transport={args.transport})")
     print(f"  Endpoint:   {endpoint_url}")
     print(f"  Client API: {client_hint}")
-    print(f"  Press Ctrl+C to stop.")
+    print("  Press Ctrl+C to stop.")
     print()
 
     # mcp.run() starts uvicorn/starlette and blocks until Ctrl+C.

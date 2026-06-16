@@ -13,6 +13,7 @@ Agent attribution:
   code. Our handler reads these tags to attribute the call to a specific
   agent. Falls back to "unknown" if no agent tag is present.
 """
+
 from __future__ import annotations
 
 import time
@@ -86,15 +87,17 @@ class CostTrackingCallback(BaseCallbackHandler):
         cost = estimate_cost(prompt_tokens, completion_tokens, model)
 
         # Build and record
-        tracker.record(CostRecord(
-            trace_id=str(run_id)[:8],     # short prefix of the LangChain run UUID
-            agent_name=agent_name,
-            model=model,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            cost_usd=cost,
-            latency_ms=round(latency_ms, 1),
-        ))
+        tracker.record(
+            CostRecord(
+                trace_id=str(run_id)[:8],  # short prefix of the LangChain run UUID
+                agent_name=agent_name,
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cost_usd=cost,
+                latency_ms=round(latency_ms, 1),
+            )
+        )
 
 
 def _extract_agent_name(
@@ -108,7 +111,7 @@ def _extract_agent_name(
     if tags:
         for t in tags:
             if t.startswith("agent:"):
-                return t.split(":", 1)[1]     # "agent:qa" -> "qa"
+                return t.split(":", 1)[1]  # "agent:qa" -> "qa"
     if metadata and "agent_name" in metadata:
         return str(metadata["agent_name"])
     return "unknown"

@@ -4,7 +4,9 @@ src/main.py — Finnie AI Finance Assistant CLI entry point.
 Run from terminal:
     uv run python -m src.main
 """
+
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import uuid
@@ -13,6 +15,7 @@ from src.utils.logger import setup_logger
 from src.workflow.graph import build_graph
 
 logger = setup_logger(__name__)
+
 
 class FinnieAIFinanceAssistant:
     """Interactive CLI for the Finnie multi-agent system."""
@@ -46,7 +49,7 @@ class FinnieAIFinanceAssistant:
                 "thread_id": self.thread_id[:8],
                 "user_query_length": len(query),
             },
-            "run_name": f"finnie.query: {query[:60]}" # sets the title of the top-level trace in the dashboard. Without it, traces all look like LangGraph.
+            "run_name": f"finnie.query: {query[:60]}",  # sets the title of the top-level trace in the dashboard. Without it, traces all look like LangGraph.
         }
         # Reset per-turn buffers so previous-turn state doesn't leak in
         initial_state = {
@@ -71,11 +74,10 @@ class FinnieAIFinanceAssistant:
         try:
             final = self.graph.invoke(initial_state, config=config)
         except Exception as e:
-            logger.error("Graph invocation failed", extra={"error_type": type(e).__name__, "error": str(e)})
-            return (
-                "Sorry, something went wrong while processing your question. "
-                "Please try again."
+            logger.error(
+                "Graph invocation failed", extra={"error_type": type(e).__name__, "error": str(e)}
             )
+            return "Sorry, something went wrong while processing your question. Please try again."
         return final.get("final_answer", "(no answer produced)")
 
     def run_interactive(self) -> None:

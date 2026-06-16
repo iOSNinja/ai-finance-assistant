@@ -14,6 +14,7 @@ WHAT THIS TEST PROVES:
 USAGE:
   uv run python -m tests.mcp.smoke_stdio
 """
+
 import asyncio
 import json
 import sys
@@ -21,7 +22,6 @@ from typing import Any
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-
 
 # How the client should launch our server
 # This is the EXACT same shape Claude Desktop uses in its config file.
@@ -73,20 +73,19 @@ async def main() -> int:
     # 'stdio_client' spawns the subprocess and returns (read_stream, write_stream).
     # The 'async with' ensures the subprocess is killed cleanly when we exit.
     async with stdio_client(SERVER_PARAMS) as (read, write):
-
         # 'ClientSession' wraps the raw streams in the MCP protocol layer.
         async with ClientSession(read, write) as session:
-
             # Step 2: initialize handshake
-            print(f"[2/6] Sending MCP initialize handshake...")
+            print("[2/6] Sending MCP initialize handshake...")
             init_result = await session.initialize()
-            print(f"      Server:   {init_result.serverInfo.name} "
-                  f"v{init_result.serverInfo.version}")
+            print(
+                f"      Server:   {init_result.serverInfo.name} v{init_result.serverInfo.version}"
+            )
             print(f"      Protocol: {init_result.protocolVersion}")
             print()
 
             # Step 3: discover tools + prompts
-            print(f"[3/6] Discovering tools and prompts...")
+            print("[3/6] Discovering tools and prompts...")
             tools_response = await session.list_tools()
             prompts_response = await session.list_prompts()
 
@@ -105,7 +104,7 @@ async def main() -> int:
             print()
 
             # Step 4: RAG pattern — finance_qa_search
-            print(f"[4/6] Calling RAG tool: finance_qa_search('What is an ETF?')")
+            print("[4/6] Calling RAG tool: finance_qa_search('What is an ETF?')")
             rag_result = await session.call_tool(
                 "finance_qa_search",
                 {"query": "What is an ETF?", "top_k": 3},
@@ -114,7 +113,7 @@ async def main() -> int:
             print()
 
             # Step 5: Math pattern — required_monthly_savings
-            print(f"[5/6] Calling math tool: required_monthly_savings(target=$1M, 30y, 7%)")
+            print("[5/6] Calling math tool: required_monthly_savings(target=$1M, 30y, 7%)")
             math_result = await session.call_tool(
                 "required_monthly_savings",
                 {
@@ -127,19 +126,21 @@ async def main() -> int:
             print()
 
             # Step 6: API pattern — get_index_overview (no args)
-            print(f"[6/6] Calling API tool: get_index_overview()")
+            print("[6/6] Calling API tool: get_index_overview()")
             try:
                 api_result = await session.call_tool("get_index_overview", {})
                 _pretty_print("result", _content_text(api_result))
             except Exception as e:
                 # yfinance can rate-limit; we don't fail the wire test on a data hiccup
                 print(f"      WARNING: API call raised ({type(e).__name__}: {e})")
-                print(f"      The wire still works — yfinance availability is not our concern here.")
+                print("      The wire still works — yfinance availability is not our concern here.")
             print()
 
             # render both prompts
-            print(f"[+]   Rendering prompt: explain-like-im-5"
-                  f"(concept='compound interest', audience='child')")
+            print(
+                "[+]   Rendering prompt: explain-like-im-5"
+                "(concept='compound interest', audience='child')"
+            )
             prompt_result = await session.get_prompt(
                 "explain-like-im-5",
                 {"concept": "compound interest", "audience": "child"},
@@ -149,7 +150,7 @@ async def main() -> int:
                 print(f"      [{msg.role}] {text[:280]}")
             print()
 
-            print(f"[+]   Rendering prompt: regulatory-disclaimer()")
+            print("[+]   Rendering prompt: regulatory-disclaimer()")
             disclaimer_result = await session.get_prompt("regulatory-disclaimer", {})
             for msg in disclaimer_result.messages:
                 text = getattr(msg.content, "text", str(msg.content))

@@ -45,22 +45,28 @@ from typing import Literal
 
 from mcp.server.fastmcp import FastMCP
 
-from src.utils.logger import setup_logger
+from src.agents.goal.tool import (
+    project_growth as _project_growth,
+)
+from src.agents.goal.tool import (
+    required_monthly_savings as _required_monthly_savings,
+)
+from src.agents.market.tool import (
+    get_historical_prices as _get_historical_prices,
+)
+from src.agents.market.tool import (
+    get_index_overview as _get_index_overview,
+)
+from src.agents.market.tool import (
+    get_stock_quote as _get_stock_quote,
+)
+from src.agents.news.tool import search_financial_news as _search_financial_news
+from src.agents.portfolio.tool import analyze_portfolio as _analyze_portfolio
 
 # importing the tools
 from src.agents.qa.tool import finance_qa_search as _qa_search
 from src.agents.tax.tool import tax_education_search as _tax_search
-from src.agents.goal.tool import (
-    required_monthly_savings as _required_monthly_savings,
-    project_growth as _project_growth,
-)
-from src.agents.portfolio.tool import analyze_portfolio as _analyze_portfolio
-from src.agents.market.tool import (
-    get_stock_quote as _get_stock_quote,
-    get_historical_prices as _get_historical_prices,
-    get_index_overview as _get_index_overview,
-)
-from src.agents.news.tool import search_financial_news as _search_financial_news
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.mcp_server")
 
@@ -76,15 +82,19 @@ mcp = FastMCP(
     ),
 )
 
+
 # Exposing all our 9 Finnie's tools as mcp tools
 # Tool 1/9 — RAG: finance Q&A search
 @mcp.tool()
 def finance_qa_search(
     query: str,
     category: Literal[
-        "investing_basics", "portfolio_management",
-        "market_analysis", "goal_planning",
-    ] | None = None,
+        "investing_basics",
+        "portfolio_management",
+        "market_analysis",
+        "goal_planning",
+    ]
+    | None = None,
     top_k: int = 5,
 ) -> list[dict]:
     """Search Finnie's curated finance education knowledge base.
@@ -104,11 +114,13 @@ def finance_qa_search(
         List of dicts with keys {text, source_url, source_name, category, relevance}.
         Empty list on retrieval failure.
     """
-    return _qa_search.invoke({
-        "query": query,
-        "category": category,
-        "top_k": top_k,
-    })
+    return _qa_search.invoke(
+        {
+            "query": query,
+            "category": category,
+            "top_k": top_k,
+        }
+    )
 
 
 # Tool 2/9 — RAG: tax education search
@@ -156,12 +168,14 @@ def required_monthly_savings(
         Dict with keys including monthly_contribution, total_contributed,
         and growth attribution breakdown.
     """
-    return _required_monthly_savings.invoke({
-        "target_amount": target_amount,
-        "years": years,
-        "expected_annual_return_pct": expected_annual_return_pct,
-        "current_savings": current_savings,
-    })
+    return _required_monthly_savings.invoke(
+        {
+            "target_amount": target_amount,
+            "years": years,
+            "expected_annual_return_pct": expected_annual_return_pct,
+            "current_savings": current_savings,
+        }
+    )
 
 
 # Tool 4/9 — Math: project growth
@@ -189,12 +203,14 @@ def project_growth(
         Dict with final_balance, total_contributed, total_growth, and
         milestone-year snapshots.
     """
-    return _project_growth.invoke({
-        "current_savings": current_savings,
-        "monthly_contribution": monthly_contribution,
-        "years": years,
-        "expected_annual_return_pct": expected_annual_return_pct,
-    })
+    return _project_growth.invoke(
+        {
+            "current_savings": current_savings,
+            "monthly_contribution": monthly_contribution,
+            "years": years,
+            "expected_annual_return_pct": expected_annual_return_pct,
+        }
+    )
 
 
 # Tool 5/9 — Math: analyze portfolio
@@ -254,8 +270,18 @@ def get_stock_quote(ticker: str) -> dict:
 def get_historical_prices(
     ticker: str,
     period: Literal[
-        "1d", "5d", "10d", "1mo", "3mo", "6mo",
-        "1y", "2y", "5y", "10y", "ytd", "max",
+        "1d",
+        "5d",
+        "10d",
+        "1mo",
+        "3mo",
+        "6mo",
+        "1y",
+        "2y",
+        "5y",
+        "10y",
+        "ytd",
+        "max",
     ] = "1mo",
 ) -> dict:
     """Get historical closing prices for a ticker over a period.
@@ -338,7 +364,7 @@ def explain_like_im_5_prompt(
     }
     style = audience_styles.get(audience, audience_styles["adult"])
     return (
-        f"Explain the financial concept of \"{concept}\" to {style}. "
+        f'Explain the financial concept of "{concept}" to {style}. '
         f"Use a concrete real-world analogy, avoid jargon, and end with one "
         f"actionable example. Keep the explanation under 200 words. "
         f"This is for educational purposes only — do not give specific "
@@ -376,6 +402,7 @@ def regulatory_disclaimer_prompt() -> str:
         "advice. Consult a licensed professional before making any financial "
         "decisions."
     )
+
 
 logger.info(
     "Finnie MCP server defined.",

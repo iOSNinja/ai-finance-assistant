@@ -14,11 +14,11 @@ import os
 import time
 
 from langchain_core.tools import tool
-from tavily import TavilyClient
 from langsmith import traceable
+from tavily import TavilyClient
 
-from src.utils.logger import setup_logger
 from src.core.config import NEWS_CONFIG
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.agents.news.tool")
 
@@ -41,8 +41,9 @@ ALLOWED_DOMAINS = [
 # Local cache: {key, (value, expires_at)}
 _cache: dict[str, tuple[dict, float]] = {}
 
-CACHE_TTL = NEWS_CONFIG.get("cache_ttl_seconds", 3600) # default to 1 hr
+CACHE_TTL = NEWS_CONFIG.get("cache_ttl_seconds", 3600)  # default to 1 hr
 DEFAULT_MAX_RESULTS = NEWS_CONFIG.get("max_results", 5)
+
 
 # Local cache implementation
 def _cache_get(key: str) -> dict | None:
@@ -59,9 +60,11 @@ def _cache_get(key: str) -> dict | None:
 
     return value
 
+
 def _cache_set(key: str, value: dict, ttl_seconds: float) -> None:
     """store value with TTL as a tuple for the key passed in."""
     _cache[key] = value, time.time() + ttl_seconds
+
 
 # Tavily client - singleton at import time
 _tavily_key = os.environ.get("TAVILY_API_KEY", "")
@@ -69,9 +72,8 @@ _tavily_key = os.environ.get("TAVILY_API_KEY", "")
 if not _tavily_key:
     logger.warning("TAVILY_API_KEY not set — news_agent will return errors")
 
-_tavily_client: TavilyClient | None = (
-    TavilyClient(api_key=_tavily_key) if _tavily_key else None
-)
+_tavily_client: TavilyClient | None = TavilyClient(api_key=_tavily_key) if _tavily_key else None
+
 
 @traceable(name="tavily.search", run_type="tool")
 def _tavily_search(query: str, max_results: int) -> list[dict]:
@@ -86,6 +88,7 @@ def _tavily_search(query: str, max_results: int) -> list[dict]:
         include_domains=ALLOWED_DOMAINS,
     )
     return response.get("results", [])
+
 
 @tool
 def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) -> dict:
@@ -112,7 +115,7 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
             "error": "Tavily API key not configured (TAVILY_API_KEY missing).",
             "query": query,
         }
-    
+
     cache_key = f"news:{query}:{max_results}"
     if (cached := _cache_get(cache_key)) is not None:
         logger.info("news cache hit", extra={"query": query[:60]})
@@ -122,13 +125,15 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
     try:
         response = _tavily_search(query, max_results)
     except Exception as e:
-        logger.error("Tavily search failed", extra={"error_type": type(e).__name__, "error": str(e)})
+        logger.error(
+            "Tavily search failed", extra={"error_type": type(e).__name__, "error": str(e)}
+        )
         return {
             "error": f"Search service unavailable: {type(e).__name__}",
             "query": query,
         }
 
-    raw_results = response   # already the list, returned by _tavily_search
+    raw_results = response  # already the list, returned by _tavily_search
     if not raw_results:
         return {
             "query": query,
@@ -141,28 +146,32 @@ def search_financial_news(query: str, max_results: int = DEFAULT_MAX_RESULTS) ->
     results = []
     for r in raw_results:
         url = r.get("url", "")
-        results.append({
-            "title":          r.get("title", "(no title)"),
-            "snippet":        r.get("content", "")[:500],   # trim long snippets
-            "url":            url,
-            "source":         _extract_domain(url),
-            "published_date": r.get("published_date", "unknown"),
-        })
+        results.append(
+            {
+                "title": r.get("title", "(no title)"),
+                "snippet": r.get("content", "")[:500],  # trim long snippets
+                "url": url,
+                "source": _extract_domain(url),
+                "published_date": r.get("published_date", "unknown"),
+            }
+        )
 
     result = {
-        "query":       query,
-        "results":     results,
+        "query": query,
+        "results": results,
         "num_results": len(results),
-        "cache_hit":   False,
+        "cache_hit": False,
     }
     _cache_set(cache_key, result, CACHE_TTL)
     logger.info("news fetch returned results", extra={"result_count": len(results)})
     return result
 
+
 def _extract_domain(url: str) -> str:
     """Extract clean domain from a URL for display (e.g., 'reuters.com')."""
     try:
         from urllib.parse import urlparse
+
         netloc = urlparse(url).netloc
         # Strip "www." prefix for cleanliness
         return netloc[4:] if netloc.startswith("www.") else netloc

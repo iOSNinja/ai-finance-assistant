@@ -20,6 +20,7 @@ WHAT IT INTENTIONALLY DOESN'T DO:
     graph result. That's the largest savings per hit and the simplest
     insertion point.
 """
+
 from __future__ import annotations
 
 import time
@@ -34,12 +35,13 @@ import numpy as np
 @dataclass
 class CacheEntry:
     """One cached query -> result mapping with embedding + creation time."""
-    query:      str
-    embedding:  np.ndarray            # shape (D,) — typically 1536 for OpenAI small
-    result:     Any                   # whatever the graph returns
-    cost_to_compute_usd:   float = 0.0   # what this entry cost when computed
+
+    query: str
+    embedding: np.ndarray  # shape (D,) — typically 1536 for OpenAI small
+    result: Any  # whatever the graph returns
+    cost_to_compute_usd: float = 0.0  # what this entry cost when computed
     created_at: float = field(default_factory=time.monotonic)
-    hit_count:  int   = 0             # increment each time this entry serves a hit
+    hit_count: int = 0  # increment each time this entry serves a hit
 
 
 # Cache
@@ -48,10 +50,10 @@ class SemanticCache:
 
     def __init__(
         self,
-        embeddings,                         # langchain Embeddings (OpenAIEmbeddings, etc.)
-        threshold: float = 0.95,            # cosine sim ≥ threshold → cache HIT
-        ttl_seconds: float = 3600.0,        # entries older than this are evicted
-        max_size: int = 100,                # cap on entries in cache
+        embeddings,  # langchain Embeddings (OpenAIEmbeddings, etc.)
+        threshold: float = 0.95,  # cosine sim ≥ threshold → cache HIT
+        ttl_seconds: float = 3600.0,  # entries older than this are evicted
+        max_size: int = 100,  # cap on entries in cache
     ) -> None:
         self._embeddings = embeddings
         self.threshold = threshold
@@ -62,7 +64,7 @@ class SemanticCache:
         self._lock = Lock()
         self.hits = 0
         self.misses = 0
-        self.total_saved_usd: float = 0.0   # cumulative $ saved by hits
+        self.total_saved_usd: float = 0.0  # cumulative $ saved by hits
 
     # Public API
     def get(self, query: str) -> Any | None:
@@ -88,7 +90,7 @@ class SemanticCache:
                 entry = self._entries[best_idx]
                 entry.hit_count += 1
                 self.hits += 1
-                self.total_saved_usd += entry.cost_to_compute_usd 
+                self.total_saved_usd += entry.cost_to_compute_usd
                 return entry.result
 
             self.misses += 1
@@ -123,7 +125,7 @@ class SemanticCache:
             self._entries.clear()
             self.hits = 0
             self.misses = 0
-            self.total_saved_usd = 0.0 
+            self.total_saved_usd = 0.0
 
     # Read-only properties
     @property
@@ -141,14 +143,14 @@ class SemanticCache:
         """Snapshot of cache stats — safe to call from any thread."""
         with self._lock:
             return {
-                "hits":         self.hits,
-                "misses":       self.misses,
-                "hit_rate":     self.hit_rate,
-                "entries":      len(self._entries),
-                "total_saved_usd":  self.total_saved_usd,
-                "max_size":     self.max_size,
-                "threshold":    self.threshold,
-                "ttl_seconds":  self.ttl_seconds,
+                "hits": self.hits,
+                "misses": self.misses,
+                "hit_rate": self.hit_rate,
+                "entries": len(self._entries),
+                "total_saved_usd": self.total_saved_usd,
+                "max_size": self.max_size,
+                "threshold": self.threshold,
+                "ttl_seconds": self.ttl_seconds,
             }
 
     # Internals

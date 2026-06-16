@@ -4,11 +4,12 @@ env var > yaml > hardcoded default(fall back)
 """
 
 import os
-import yaml
 from pathlib import Path
+
+import yaml
 from dotenv import load_dotenv
-from openai import OpenAI
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from openai import OpenAI
 
 load_dotenv()
 
@@ -16,6 +17,7 @@ load_dotenv()
 CONFIG_PATH = Path(__file__).resolve().parents[2] / "config.yaml"
 with CONFIG_PATH.open() as f:
     _config = yaml.safe_load(f)
+
 
 # env var > yaml > error
 def _get(name: str, yaml_path: tuple[str, ...], default=None) -> str:
@@ -27,6 +29,7 @@ def _get(name: str, yaml_path: tuple[str, ...], default=None) -> str:
             return default
         node = node[key]
     return node
+
 
 # API Keys
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
@@ -61,9 +64,8 @@ from src.observability.cost_callback import CostTrackingCallback
 _cost_callback = CostTrackingCallback()
 
 llm = ChatOpenAI(
-    model=MODEL, 
+    model=MODEL,
     temperature=0.2,
     callbacks=[_cost_callback],
 )
-judge_llm = ChatOpenAI(model=JUDEG_MODEL, temperature=0) # no tracking — eval-only
-
+judge_llm = ChatOpenAI(model=JUDEG_MODEL, temperature=0)  # no tracking — eval-only

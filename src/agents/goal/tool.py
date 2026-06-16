@@ -72,7 +72,12 @@ def required_monthly_savings(
     """
     logger.info(
         "required_monthly_savings called",
-        extra={"target_amount": target_amount, "years": years, "expected_annual_return_pct": expected_annual_return_pct, "current_savings": current_savings}
+        extra={
+            "target_amount": target_amount,
+            "years": years,
+            "expected_annual_return_pct": expected_annual_return_pct,
+            "current_savings": current_savings,
+        },
     )
 
     _validate_positive("target_amount", target_amount)
@@ -91,14 +96,14 @@ def required_monthly_savings(
     # If the target is already covered by current savings alone
     if fv_of_current >= target_amount:
         return {
-            "monthly_contribution":       0.0,
-            "target_amount":              target_amount,
-            "years":                      years,
+            "monthly_contribution": 0.0,
+            "target_amount": target_amount,
+            "years": years,
             "expected_annual_return_pct": expected_annual_return_pct,
-            "current_savings":            current_savings,
-            "total_contributed":          0.0,
+            "current_savings": current_savings,
+            "total_contributed": 0.0,
             "growth_from_current_savings": round(fv_of_current - current_savings, 2),
-            "growth_from_contributions":  0.0,
+            "growth_from_contributions": 0.0,
             "note": (
                 "Your current savings alone, compounded at the assumed rate, "
                 "already exceed your target. No monthly contribution required."
@@ -117,16 +122,19 @@ def required_monthly_savings(
     growth_from_contrib = remaining_needed - total_contributed
 
     result = {
-        "monthly_contribution":        round(monthly, 2),
-        "target_amount":               target_amount,
-        "years":                       years,
-        "expected_annual_return_pct":  expected_annual_return_pct,
-        "current_savings":             current_savings,
-        "total_contributed":           round(total_contributed, 2),
+        "monthly_contribution": round(monthly, 2),
+        "target_amount": target_amount,
+        "years": years,
+        "expected_annual_return_pct": expected_annual_return_pct,
+        "current_savings": current_savings,
+        "total_contributed": round(total_contributed, 2),
         "growth_from_current_savings": round(fv_of_current - current_savings, 2),
-        "growth_from_contributions":   round(growth_from_contrib, 2),
+        "growth_from_contributions": round(growth_from_contrib, 2),
     }
-    logger.info("required_monthly_savings result", extra={"monthly_contribution": result["monthly_contribution"]})
+    logger.info(
+        "required_monthly_savings result",
+        extra={"monthly_contribution": result["monthly_contribution"]},
+    )
     return result
 
 
@@ -160,7 +168,12 @@ def project_growth(
     """
     logger.info(
         "project_growth called",
-        extra={"current_savings": current_savings, "monthly_contribution": monthly_contribution, "years": years, "expected_annual_return_pct": expected_annual_return_pct}
+        extra={
+            "current_savings": current_savings,
+            "monthly_contribution": monthly_contribution,
+            "years": years,
+            "expected_annual_return_pct": expected_annual_return_pct,
+        },
     )
 
     if current_savings < 0:
@@ -181,11 +194,13 @@ def project_growth(
         balance = balance * (1 + r) + monthly_contribution
         if month % MONTHS_PER_YEAR == 0:
             year = month // MONTHS_PER_YEAR
-            yearly_snapshots.append({
-                "year":                year,
-                "balance":             round(balance, 2),
-                "contributed_to_date": round(monthly_contribution * month, 2),
-            })
+            yearly_snapshots.append(
+                {
+                    "year": year,
+                    "balance": round(balance, 2),
+                    "contributed_to_date": round(monthly_contribution * month, 2),
+                }
+            )
 
     # Pick milestone years to surface (don't drown the LLM with 60 rows)
     milestones = [1, 5, 10, 20, 30]
@@ -197,14 +212,14 @@ def project_growth(
     final_balance = round(balance, 2)
 
     result = {
-        "final_balance":     final_balance,
+        "final_balance": final_balance,
         "total_contributed": round(total_contributed, 2),
-        "total_growth":      round(final_balance - total_contributed, 2),
-        "yearly_balances":   picked,
+        "total_growth": round(final_balance - total_contributed, 2),
+        "yearly_balances": picked,
         "params": {
-            "current_savings":            current_savings,
-            "monthly_contribution":       monthly_contribution,
-            "years":                      years,
+            "current_savings": current_savings,
+            "monthly_contribution": monthly_contribution,
+            "years": years,
             "expected_annual_return_pct": expected_annual_return_pct,
         },
     }

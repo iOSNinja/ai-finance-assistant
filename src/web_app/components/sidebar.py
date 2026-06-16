@@ -81,6 +81,7 @@ def render_sidebar() -> None:
             icon="⚠️",
         )
 
+
 def _format_cost(usd: float) -> str:
     """Format a USD amount for compact sidebar display.
 
@@ -95,17 +96,20 @@ def _format_cost(usd: float) -> str:
     if usd <= 0:
         return "$0.00"
     if usd < 0.01:
-        return f"{usd * 100:.4f}¢"     # e.g. 0.0912¢
+        return f"{usd * 100:.4f}¢"  # e.g. 0.0912¢
     if usd < 1.0:
-        return f"${usd:.4f}"           # e.g. $0.0234
-    return f"${usd:,.2f}"              # e.g. $1.23 or $1,234.56
+        return f"${usd:.4f}"  # e.g. $0.0234
+    return f"${usd:,.2f}"  # e.g. $1.23 or $1,234.56
+
 
 def _render_cost_panel() -> None:
     """Render live cost stats + cache stats from the session state."""
     tracker = st.session_state.get("cost_tracker")
     cache = st.session_state.get("semantic_cache")
 
-    if (tracker is None or tracker.total_calls == 0) and (cache is None or cache.hits + cache.misses == 0):
+    if (tracker is None or tracker.total_calls == 0) and (
+        cache is None or cache.hits + cache.misses == 0
+    ):
         st.caption("Send a chat query to see cost breakdown.")
         return
 
@@ -113,7 +117,7 @@ def _render_cost_panel() -> None:
     if tracker is not None and tracker.total_calls > 0:
         st.metric("LLM calls", tracker.total_calls)
         st.metric("Total spent", _format_cost(tracker.total_cost_usd))
-        st.metric("Avg / call",  _format_cost(tracker.avg_cost_per_call_usd))
+        st.metric("Avg / call", _format_cost(tracker.avg_cost_per_call_usd))
 
     # Cache tiles (only render if cache has activity)
     if cache is not None and (cache.hits + cache.misses) > 0:
@@ -167,7 +171,7 @@ def _reset_conversation() -> None:
         st.session_state.chat_messages = []
     if "cost_tracker" in st.session_state:
         st.session_state.cost_tracker.reset()
-    if "semantic_cache" in st.session_state:  
+    if "semantic_cache" in st.session_state:
         st.session_state.semantic_cache.clear()
     if "assistant" in st.session_state:
         st.session_state.assistant._new_session()

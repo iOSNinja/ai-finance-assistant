@@ -24,6 +24,7 @@ _store = Chroma(
     persist_directory=RAG_CONFIG.get("persist_dir", "./chroma_db"),
 )
 
+
 # the tool
 @tool
 def finance_qa_search(
@@ -33,7 +34,8 @@ def finance_qa_search(
         "portfolio_management",
         "market_analysis",
         "goal_planning",
-    ] | None = None,
+    ]
+    | None = None,
     top_k: int = 5,
 ) -> list[dict]:
     """Search Finnie's knowledge base for chunks relevant to a finance question.
@@ -59,7 +61,9 @@ def finance_qa_search(
           - relevance:   similarity score in [0.0, 1.0]; higher is more relevant
         Returns [] if retrieval fails or no chunks match.
     """
-    logger.info("KB search called", extra={"query": query[:80], "category": category, "top_k": top_k})
+    logger.info(
+        "KB search called", extra={"query": query[:80], "category": category, "top_k": top_k}
+    )
 
     # apply category filter for Chroma metadata if available
     where = {"category": category} if category else None
@@ -73,24 +77,27 @@ def finance_qa_search(
     except Exception as e:
         logger.error("KB search failed", extra={"error_type": type(e).__name__, "error": str(e)})
         return []
-    
+
     if not results:
         logger.warning("KB search returned no results", extra={"query": query[:80]})
         return []
-    
+
     # return as a list of custom dicts
     output: list[dict] = []
     for doc, score in results:
-        output.append({
-            "text": doc.page_content,
-            "source_url": doc.metadata.get("source_url", ""),
-            "source_name": doc.metadata.get("source_name", ""),
-            "category": doc.metadata.get("category", ""),
-            "relevance": round(float(score), 4),
-        })
+        output.append(
+            {
+                "text": doc.page_content,
+                "source_url": doc.metadata.get("source_url", ""),
+                "source_name": doc.metadata.get("source_name", ""),
+                "category": doc.metadata.get("category", ""),
+                "relevance": round(float(score), 4),
+            }
+        )
 
     logger.info("KB search returned results", extra={"chunk_count": len(output)})
     return output
+
 
 # Convenient list for binding to the LLM / building ToolNodes
 qa_tools_list = [finance_qa_search]

@@ -49,10 +49,14 @@ def _validate_holdings(holdings: list[dict]) -> None:
 
 def _risk_profile(stock_pct: float) -> str:
     """Map stocks % to a risk-profile label."""
-    if stock_pct > 80: return "Aggressive"
-    if stock_pct > 60: return "Moderate-Aggressive"
-    if stock_pct > 40: return "Moderate"
-    if stock_pct > 20: return "Conservative"
+    if stock_pct > 80:
+        return "Aggressive"
+    if stock_pct > 60:
+        return "Moderate-Aggressive"
+    if stock_pct > 40:
+        return "Moderate"
+    if stock_pct > 20:
+        return "Conservative"
     return "Very Conservative"
 
 
@@ -100,18 +104,14 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
     by_class: dict[str, float] = {}
     for h in holdings:
         by_class[h["asset_class"]] = by_class.get(h["asset_class"], 0.0) + h["value_usd"]
-    allocation_by_asset_class = {
-        k: round(v / total_value * 100, 2) for k, v in by_class.items()
-    }
+    allocation_by_asset_class = {k: round(v / total_value * 100, 2) for k, v in by_class.items()}
 
     # Allocation by ticker
     by_ticker: dict[str, float] = {}
     for h in holdings:
         # If a ticker appears twice, aggregate
         by_ticker[h["ticker"]] = by_ticker.get(h["ticker"], 0.0) + h["value_usd"]
-    allocation_by_ticker = {
-        k: round(v / total_value * 100, 2) for k, v in by_ticker.items()
-    }
+    allocation_by_ticker = {k: round(v / total_value * 100, 2) for k, v in by_ticker.items()}
 
     # Concentration + diversification (HHI-based)
     largest = max(allocation_by_ticker.values())
@@ -124,26 +124,28 @@ def analyze_portfolio(holdings: list[dict]) -> dict:
 
     # Weighted expense ratio — only if EVERY holding provides one
     if all("expense_ratio" in h for h in holdings):
-        weighted_er = sum(
-            h["value_usd"] * h["expense_ratio"] for h in holdings
-        ) / total_value
+        weighted_er = sum(h["value_usd"] * h["expense_ratio"] for h in holdings) / total_value
         weighted_expense_ratio: float | None = round(weighted_er, 4)
     else:
         weighted_expense_ratio = None
 
     result = {
-        "total_value":               round(total_value, 2),
-        "num_holdings":              len(holdings),
+        "total_value": round(total_value, 2),
+        "num_holdings": len(holdings),
         "allocation_by_asset_class": allocation_by_asset_class,
-        "allocation_by_ticker":      allocation_by_ticker,
-        "largest_position_pct":      round(largest, 2),
-        "diversification_score":     diversification,
-        "risk_profile":              risk,
-        "weighted_expense_ratio":    weighted_expense_ratio,
+        "allocation_by_ticker": allocation_by_ticker,
+        "largest_position_pct": round(largest, 2),
+        "diversification_score": diversification,
+        "risk_profile": risk,
+        "weighted_expense_ratio": weighted_expense_ratio,
     }
     logger.info(
         "analyze_portfolio result",
-        extra={"total_value": result["total_value"], "diversification_score": result["diversification_score"], "risk_profile": result["risk_profile"]}
+        extra={
+            "total_value": result["total_value"],
+            "diversification_score": result["diversification_score"],
+            "risk_profile": result["risk_profile"],
+        },
     )
     return result
 

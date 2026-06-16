@@ -9,10 +9,13 @@ Three checks:
 
 Fail-CLOSED — if anything looks unsafe, redact or replace before user sees.
 """
+
 from dataclasses import dataclass, field
 
 from src.guardrails.patterns import (
-    ADVICE_VIOLATION_PATTERNS, DISCLAIMER_MARKERS, PII_PATTERNS,
+    ADVICE_VIOLATION_PATTERNS,
+    DISCLAIMER_MARKERS,
+    PII_PATTERNS,
 )
 from src.guardrails.pii import redact_pii_output
 from src.utils.logger import setup_logger
@@ -22,7 +25,7 @@ logger = setup_logger(__name__)
 
 @dataclass
 class OutputGuardResult:
-    text: str                                              # possibly transformed
+    text: str  # possibly transformed
     advice_violations: list[str] = field(default_factory=list)
     pii_redactions: list[dict] = field(default_factory=list)
     disclaimer_missing: bool = False
@@ -74,8 +77,7 @@ def scrub_output(text: str, is_finance_query: bool = True) -> OutputGuardResult:
 
     # Combine audit logs
     all_redactions = regex_redactions + [
-        {"type": r["type"], "score": r["score"], "via": "presidio"}
-        for r in presidio_redactions
+        {"type": r["type"], "score": r["score"], "via": "presidio"} for r in presidio_redactions
     ]
 
     # Step 3 — advice-violation check
@@ -85,14 +87,19 @@ def scrub_output(text: str, is_finance_query: bool = True) -> OutputGuardResult:
     disclaimer_missing = is_finance_query and not _has_disclaimer(text)
 
     if violations:
-        logger.warning("Output guard: advice-violation pattern", extra={
-            "guard_type": "advice_violation", "violations": violations})
+        logger.warning(
+            "Output guard: advice-violation pattern",
+            extra={"guard_type": "advice_violation", "violations": violations},
+        )
     if all_redactions:
-        logger.info("Output guard: PII redacted", extra={
-            "guard_type": "pii_safety_net", "redactions": all_redactions})
+        logger.info(
+            "Output guard: PII redacted",
+            extra={"guard_type": "pii_safety_net", "redactions": all_redactions},
+        )
     if disclaimer_missing:
-        logger.warning("Output guard: disclaimer missing", extra={
-            "guard_type": "disclaimer_presence"})
+        logger.warning(
+            "Output guard: disclaimer missing", extra={"guard_type": "disclaimer_presence"}
+        )
 
     return OutputGuardResult(
         text=text,

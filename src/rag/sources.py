@@ -1,7 +1,9 @@
 """
 sources.py - defines where Finnie should get it's knowledge from.
 """
+
 from typing import Literal, NotRequired, TypedDict
+
 
 class SourceConfig(TypedDict):
     name: str
@@ -13,7 +15,7 @@ class SourceConfig(TypedDict):
         "tax_education",
     ]
     discovery: Literal["sitemap", "explicit"]
-    urls: NotRequired[list[str]] # NotRequired -> makes it optional
+    urls: NotRequired[list[str]]  # NotRequired -> makes it optional
     sitemap_url: NotRequired[str]
     limit: NotRequired[int]
 
@@ -58,9 +60,8 @@ SOURCES: list[SourceConfig] = [
         "category": "investing_basics",
         "discovery": "sitemap",
         "sitemap_url": "https://zerodha.com/varsity/chapter-sitemap2.xml",
-        "limit": 15, # Zerodha has more than 50+ urls in it's sitemap
+        "limit": 15,  # Zerodha has more than 50+ urls in it's sitemap
     },
-
     # ─────────── portfolio_management ───────────
     {
         "name": "wikipedia_portfolio",
@@ -96,7 +97,6 @@ SOURCES: list[SourceConfig] = [
             "https://www.bogleheads.org/wiki/Bogleheads%C2%AE_investment_philosophy",
         ],
     },
-
     # ─────────── market_analysis ───────────
     {
         "name": "wikipedia_market_analysis",
@@ -116,7 +116,6 @@ SOURCES: list[SourceConfig] = [
             "https://en.wikipedia.org/wiki/Efficient-market_hypothesis",
         ],
     },
-
     # ─────────── goal_planning ───────────
     {
         "name": "wikipedia_goal_planning",
@@ -152,7 +151,6 @@ SOURCES: list[SourceConfig] = [
             "https://www.bogleheads.org/wiki/Emergency_fund",
         ],
     },
-
     # ─────────── tax_education ───────────
     {
         "name": "irs_tax_education",
