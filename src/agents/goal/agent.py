@@ -8,18 +8,18 @@ writes to goal_messages and goal_response in state.
 from typing import Literal
 
 from langchain_core.messages import (
-    SystemMessage,
-    HumanMessage,
     AIMessage,
     AnyMessage,
+    HumanMessage,
+    SystemMessage,
 )
 from langgraph.prebuilt import ToolNode
 
-from src.utils.logger import setup_logger
-from src.core.config import llm
 from src.agents.goal.tool import goal_tools_list
-from src.state import FinnieState
 from src.agents.prompts import GOAL_AGENT_PROMPT
+from src.core.config import llm
+from src.state import FinnieState
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.agents.goals.agent")
 
@@ -33,7 +33,8 @@ goal_tools_node = ToolNode(
     messages_key="goal_messages",
 )
 
-MAX_AGENT_ITERATIONS = 5 # to prevent the agent from making infinite tool_calling
+MAX_AGENT_ITERATIONS = 5  # to prevent the agent from making infinite tool_calling
+
 
 # 3. defining the goal_agent_node which runs the ReAct loop
 def goal_agent_node(state: FinnieState) -> dict:
@@ -71,7 +72,7 @@ def goal_agent_node(state: FinnieState) -> dict:
         # return fallback message in goal_messages & goal_response
         logger.warning(
             "Goal agent hit MAX_AGENT_ITERATIONS - forcing fallback",
-            extra={"max_iterations": MAX_AGENT_ITERATIONS}
+            extra={"max_iterations": MAX_AGENT_ITERATIONS},
         )
 
         fallback = (
@@ -80,14 +81,10 @@ def goal_agent_node(state: FinnieState) -> dict:
             "and either current savings or a monthly contribution?"
         )
 
-        return {
-            "goal_messages": [AIMessage(content=fallback)],
-            "goal_response": fallback
-        }
-   
+        return {"goal_messages": [AIMessage(content=fallback)], "goal_response": fallback}
+
     logger.info(
-       "Goal agent: invoking LLM",
-       extra={"history_len": len(goal_msgs), "loop_cnt": loop_cnt}
+        "Goal agent: invoking LLM", extra={"history_len": len(goal_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -100,11 +97,12 @@ def goal_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("Goal agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
+        logger.error(
+            "Goal agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)}
+        )
         # return error message in goal_messages & goal_response
         err = (
-            "I ran into an issue computing your projection. "
-            "Please try again or rephrase your goal."
+            "I ran into an issue computing your projection. Please try again or rephrase your goal."
         )
 
         return {
@@ -112,19 +110,24 @@ def goal_agent_node(state: FinnieState) -> dict:
             "goal_response": err,
         }
 
-
     # If LLM response has tool_calls → only update goal_messages; the conditional edge will route to goal_tools_node
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"goal_messages": [response]}
 
     if has_tools:
-        logger.info("Goal agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
+        logger.info(
+            "Goal agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)}
+        )
     else:
         # If response is plain text → update goal_messages AND set goal_response; the conditional edge will route to synthesizer_node
         update["goal_response"] = response.content or ""
-        logger.info("Goal agent: produced final answer", extra={"response_len": len(update["goal_response"])})
+        logger.info(
+            "Goal agent: produced final answer",
+            extra={"response_len": len(update["goal_response"])},
+        )
 
     return update
+
 
 # 4. Check if conditional edge should continue to tool_calling loop or route to synthesizer node
 def should_continue_goal(state: FinnieState) -> Literal["goal_tools_node", "synthesizer_node"]:
@@ -132,7 +135,7 @@ def should_continue_goal(state: FinnieState) -> Literal["goal_tools_node", "synt
     goal_msgs = state.get("goal_messages", [])
     if not goal_msgs:
         return "synthesizer_node"
-    
+
     last_msg = goal_msgs[-1]
     if isinstance(last_msg, AIMessage) and getattr(last_msg, "tool_calls", None):
         return "goal_tools_node"

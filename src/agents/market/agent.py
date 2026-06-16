@@ -8,10 +8,10 @@ writes to market_messages and market_response in state.
 from typing import Literal
 
 from langchain_core.messages import (
-    SystemMessage,
-    HumanMessage,
     AIMessage,
     AnyMessage,
+    HumanMessage,
+    SystemMessage,
 )
 from langgraph.prebuilt import ToolNode
 
@@ -33,7 +33,8 @@ market_tools_node = ToolNode(
     messages_key="market_messages",
 )
 
-MAX_AGENT_ITERATIONS = 5 # to prevent the agent from making infinite tool_calling
+MAX_AGENT_ITERATIONS = 5  # to prevent the agent from making infinite tool_calling
+
 
 # 3. defining the market_agent_node which runs the ReAct loop
 def market_agent_node(state: FinnieState) -> dict:
@@ -71,7 +72,7 @@ def market_agent_node(state: FinnieState) -> dict:
         # return fallback message in market_messages & market_response
         logger.warning(
             "Market agent hit MAX_AGENT_ITERATIONS - forcing fallback",
-            extra={"max_iterations": MAX_AGENT_ITERATIONS}
+            extra={"max_iterations": MAX_AGENT_ITERATIONS},
         )
         fallback = (
             "I wasn't able to fetch market data right now. Please try "
@@ -84,8 +85,7 @@ def market_agent_node(state: FinnieState) -> dict:
         }
 
     logger.info(
-        "Market agent: invoking LLM",
-        extra={"history_len": len(market_msgs), "loop_cnt": loop_cnt}
+        "Market agent: invoking LLM", extra={"history_len": len(market_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -98,12 +98,11 @@ def market_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("Market agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
-        # return error message in market_messages & market_response
-        err = (
-            "I ran into an issue fetching market data. "
-            "Please try again in a moment."
+        logger.error(
+            "Market agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)}
         )
+        # return error message in market_messages & market_response
+        err = "I ran into an issue fetching market data. Please try again in a moment."
         return {
             "market_messages": [AIMessage(content=err)],
             "market_response": err,
@@ -113,13 +112,20 @@ def market_agent_node(state: FinnieState) -> dict:
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"market_messages": [response]}
     if has_tools:
-        logger.info("Market agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
+        logger.info(
+            "Market agent requested tool calls",
+            extra={"tool_calls_count": len(response.tool_calls)},
+        )
     else:
         # If response is plain text → update market_messages AND set market_response; the conditional edge will route to synthesizer_node
         update["market_response"] = response.content or ""
-        logger.info("Market agent: produced final answer", extra={"response_len": len(update["market_response"])})
+        logger.info(
+            "Market agent: produced final answer",
+            extra={"response_len": len(update["market_response"])},
+        )
 
     return update
+
 
 # 4. Check if conditional edge should continue to tool_calling loop or route to synthesizer node
 def should_continue_market(
@@ -129,9 +135,9 @@ def should_continue_market(
     market_msgs = state.get("market_messages", [])
     if not market_msgs:
         return "synthesizer_node"
-    
+
     last = market_msgs[-1]
     if isinstance(last, AIMessage) and getattr(last, "tool_calls", None):
         return "market_tools_node"
-    
+
     return "synthesizer_node"

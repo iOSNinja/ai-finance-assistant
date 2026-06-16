@@ -35,6 +35,7 @@ USAGE:
   # Actually run the stdio loop (blocks on stdin for JSON-RPC frames)
   uv run python -m src.mcp_server.run_stdio
 """
+
 import sys
 
 # stdio safety part 1: swap stdout -> stderr for the import phase
@@ -97,7 +98,7 @@ def main() -> int:
     if args.check:
         tools = sorted(mcp._tool_manager._tools.keys())
         prompts = sorted(mcp._prompt_manager._prompts.keys())
-        print(f"finnie MCP server OK  (transport=stdio)")
+        print("finnie MCP server OK  (transport=stdio)")
         print(f"  tools   ({len(tools)}): {tools}")
         print(f"  prompts ({len(prompts)}): {prompts}")
         return 0

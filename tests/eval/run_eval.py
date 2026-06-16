@@ -15,51 +15,49 @@ Usage:
 
 import argparse
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from langsmith import evaluate
 
 from src.utils.logger import setup_logger
 from tests.eval.datasets import (
-    ROUTING_DATASET_NAME,
-    ROUTING_EXAMPLES,
-    ensure_routing_dataset,
-    ROUTING_DATASET_NAME_V2,
-    ROUTING_EXAMPLES_V2,
-    ensure_routing_dataset_v2,
-    RETRIEVAL_DATASET_NAME,
-    RETRIEVAL_EXAMPLES_V1,
-    ensure_retrieval_dataset,
     GENERATION_DATASET_NAME,
     GENERATION_EXAMPLES_V1,
-    ensure_generation_dataset,
     GUARDRAILS_DATASET_NAME,
     GUARDRAILS_EXAMPLES_V2,
+    RETRIEVAL_DATASET_NAME,
+    RETRIEVAL_EXAMPLES_V1,
+    ROUTING_DATASET_NAME,
+    ROUTING_DATASET_NAME_V2,
+    ROUTING_EXAMPLES,
+    ROUTING_EXAMPLES_V2,
+    ensure_generation_dataset,
     ensure_guardrails_dataset,
+    ensure_retrieval_dataset,
+    ensure_routing_dataset,
+    ensure_routing_dataset_v2,
 )
-
 from tests.eval.evaluators import (
+    block_category_correct,
+    correctness_evaluator,
+    # Generational evals
+    faithfulness_evaluator,
+    # Guardrails
+    guard_action_correct,
+    hit_at_1,
+    input_pii_entities_correct,
+    keyword_correctness,
+    # Retrieval evals
+    mrr_at_5,
+    pii_leak_check,
+    recall_at_5,
     # Routing evals
     routing_accuracy,
     routing_precision,
     routing_recall,
-    # Retrieval evals
-    mrr_at_5,
-    recall_at_5,
-    hit_at_1,
-    # Generational evals
-    faithfulness_evaluator,
-    correctness_evaluator,
-    keyword_correctness,
-    # Guardrails
-    guard_action_correct,
-    input_pii_entities_correct,
-    block_category_correct,
-    pii_leak_check,
 )
-from tests.eval.wrapper import FinnieEvalWrapper
 from tests.eval.retrieval_wrapper import FinnieRetrievalWrapper
-
+from tests.eval.wrapper import FinnieEvalWrapper
 
 logger = setup_logger(__name__)
 
@@ -69,44 +67,44 @@ logger = setup_logger(__name__)
 SUITES: dict[str, dict] = {
     "routing": {
         "dataset_name": ROUTING_DATASET_NAME,
-        "examples":     ROUTING_EXAMPLES,
-        "ensure_fn":    ensure_routing_dataset,
-        "evaluators":   [routing_accuracy, routing_precision, routing_recall],
-        "wrapper_cls":  FinnieEvalWrapper,
+        "examples": ROUTING_EXAMPLES,
+        "ensure_fn": ensure_routing_dataset,
+        "evaluators": [routing_accuracy, routing_precision, routing_recall],
+        "wrapper_cls": FinnieEvalWrapper,
     },
     "routing-adversarial": {  # NEW stress suite
         "dataset_name": ROUTING_DATASET_NAME_V2,
-        "examples":     ROUTING_EXAMPLES_V2,
-        "ensure_fn":    ensure_routing_dataset_v2,
-        "evaluators":   [routing_accuracy, routing_precision, routing_recall],
-        "wrapper_cls":  FinnieEvalWrapper,
+        "examples": ROUTING_EXAMPLES_V2,
+        "ensure_fn": ensure_routing_dataset_v2,
+        "evaluators": [routing_accuracy, routing_precision, routing_recall],
+        "wrapper_cls": FinnieEvalWrapper,
     },
     "retrieval": {
         "dataset_name": RETRIEVAL_DATASET_NAME,
-        "examples":     RETRIEVAL_EXAMPLES_V1,
-        "ensure_fn":    ensure_retrieval_dataset,
-        "evaluators":   [mrr_at_5, recall_at_5, hit_at_1],
-        "wrapper_cls":  FinnieRetrievalWrapper, 
+        "examples": RETRIEVAL_EXAMPLES_V1,
+        "ensure_fn": ensure_retrieval_dataset,
+        "evaluators": [mrr_at_5, recall_at_5, hit_at_1],
+        "wrapper_cls": FinnieRetrievalWrapper,
     },
-    "generation":{
+    "generation": {
         "dataset_name": GENERATION_DATASET_NAME,
-        "examples":     GENERATION_EXAMPLES_V1,
-        "ensure_fn":    ensure_generation_dataset,
-        "evaluators":   [faithfulness_evaluator, correctness_evaluator, keyword_correctness],
-        "wrapper_cls":  FinnieEvalWrapper,  # reusing the full-graph wrapper, no new wrapper needed for this!
+        "examples": GENERATION_EXAMPLES_V1,
+        "ensure_fn": ensure_generation_dataset,
+        "evaluators": [faithfulness_evaluator, correctness_evaluator, keyword_correctness],
+        "wrapper_cls": FinnieEvalWrapper,  # reusing the full-graph wrapper, no new wrapper needed for this!
     },
     "guardrails": {
         "dataset_name": GUARDRAILS_DATASET_NAME,
-        "examples":     GUARDRAILS_EXAMPLES_V2,
-        "ensure_fn":    ensure_guardrails_dataset,
-        "evaluators":   [
+        "examples": GUARDRAILS_EXAMPLES_V2,
+        "ensure_fn": ensure_guardrails_dataset,
+        "evaluators": [
             guard_action_correct,
             block_category_correct,
             input_pii_entities_correct,
             pii_leak_check,
         ],
-        "wrapper_cls":  FinnieEvalWrapper,
-    }
+        "wrapper_cls": FinnieEvalWrapper,
+    },
 }
 
 
@@ -132,9 +130,9 @@ def main() -> int:
 
     suite = SUITES[args.suite]
     dataset_name = suite["dataset_name"]
-    examples     = suite["examples"]
-    ensure_fn    = suite["ensure_fn"]
-    evaluators   = suite["evaluators"]
+    examples = suite["examples"]
+    ensure_fn = suite["ensure_fn"]
+    evaluators = suite["evaluators"]
 
     # Fail fast on empty/misconfigured suite
     if not examples:
@@ -145,12 +143,16 @@ def main() -> int:
     ensure_fn()
 
     # UTC timestamp keeps experiment names unique across re-runs and collaborators
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    timestamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     experiment_name = f"{args.prefix}-{args.suite}-{timestamp}"
 
     logger.info(
         "Starting eval: suite=%s dataset=%s examples=%d reps=%d experiment=%s",
-        args.suite, dataset_name, len(examples), args.reps, experiment_name,
+        args.suite,
+        dataset_name,
+        len(examples),
+        args.reps,
+        experiment_name,
     )
 
     # Build wrapper once - use the wrapper class declared in the suite.
@@ -178,7 +180,7 @@ def main() -> int:
     print(f"Examples:     {len(examples)}")
     print(f"Repetitions:  {args.reps}")
     print(f"Total runs:   {len(examples) * args.reps}")
-    print(f"\nFull results: https://smith.langchain.com/")
+    print("\nFull results: https://smith.langchain.com/")
     print(f"{bar}\n")
     return 0
 

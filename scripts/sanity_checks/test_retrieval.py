@@ -1,7 +1,8 @@
 """Smoke test: search the freshly-built Chroma KB."""
 
 from langchain_chroma import Chroma
-from src.core.config import embeddings, RAG_CONFIG
+
+from src.core.config import RAG_CONFIG, embeddings
 
 store = Chroma(
     collection_name=RAG_CONFIG["collection_name"],

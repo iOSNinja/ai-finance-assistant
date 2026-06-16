@@ -9,6 +9,7 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
+
 class FinnieRetrievalWrapper:
     """Calls QA & Tax RAG tools directly."""
 
@@ -30,23 +31,28 @@ class FinnieRetrievalWrapper:
         try:
             if agent == "qa":
                 # qa_search is a tool, decorated with @tool, hence we need to call viam.invoke()
-                chunks = self._qa_search.invoke({
-                    "query": query,
-                    "category": category,
-                    "top_k": 5,
-                })
+                chunks = self._qa_search.invoke(
+                    {
+                        "query": query,
+                        "category": category,
+                        "top_k": 5,
+                    }
+                )
             elif agent == "tax":
-                chunks = self._tax_search.invoke({
-                    "query": query,
-                    "top_k": 5,
-                })
+                chunks = self._tax_search.invoke(
+                    {
+                        "query": query,
+                        "top_k": 5,
+                    }
+                )
             else:
                 logger.warning("Unknown agent type", extra={"agent": agent})
                 return {"chunks": [], "error": f"Unknown agent: {agent}"}
-            
+
         except Exception as e:
-            logger.error("Retrieval failed",
-                         extra={"error_type": type(e).__name__, "error": str(e)})
+            logger.error(
+                "Retrieval failed", extra={"error_type": type(e).__name__, "error": str(e)}
+            )
             return {"chunks": [], "error": f"{type(e).__name__}: {e}"}
 
         # Normalizing return shape to ease consumption by the evaluators.

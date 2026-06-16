@@ -1,16 +1,16 @@
 """Portfolio tab: wired to analyze_portfolio tool for instant metrics + chart."""
 
-import streamlit as st
 import pandas as pd
+import streamlit as st
 
 from src.agents.portfolio.tool import analyze_portfolio
 
 VALID_CLASSES = ["stocks", "bonds", "cash", "other"]
 
 SAMPLE_PORTFOLIO = [
-    {"ticker": "VTI",  "value_usd": 30000.0, "asset_class": "stocks", "expense_ratio": 0.03},
+    {"ticker": "VTI", "value_usd": 30000.0, "asset_class": "stocks", "expense_ratio": 0.03},
     {"ticker": "VXUS", "value_usd": 10000.0, "asset_class": "stocks", "expense_ratio": 0.07},
-    {"ticker": "BND",  "value_usd": 10000.0, "asset_class": "bonds",  "expense_ratio": 0.03},
+    {"ticker": "BND", "value_usd": 10000.0, "asset_class": "bonds", "expense_ratio": 0.03},
 ]
 
 
@@ -31,10 +31,12 @@ def _render_holdings_editor() -> None:
     edited = st.data_editor(
         df,
         column_config={
-            "ticker":        st.column_config.TextColumn("Ticker", required=True),
-            "value_usd":     st.column_config.NumberColumn("$ Value", min_value=0.0, format="$%.2f"),
-            "asset_class":   st.column_config.SelectboxColumn("Asset class", options=VALID_CLASSES),
-            "expense_ratio": st.column_config.NumberColumn("Expense ratio %", min_value=0.0, format="%.3f"),
+            "ticker": st.column_config.TextColumn("Ticker", required=True),
+            "value_usd": st.column_config.NumberColumn("$ Value", min_value=0.0, format="$%.2f"),
+            "asset_class": st.column_config.SelectboxColumn("Asset class", options=VALID_CLASSES),
+            "expense_ratio": st.column_config.NumberColumn(
+                "Expense ratio %", min_value=0.0, format="%.3f"
+            ),
         },
         num_rows="dynamic",
         use_container_width=True,
@@ -49,7 +51,8 @@ def _render_results(result: dict) -> None:
 
     # Allow metric values to wrap onto multiple lines instead of truncating
     # (otherwise long labels like "Moderate-Aggressive" show as "Moderate-Ag...")
-    st.markdown("""
+    st.markdown(
+        """
     <style>
     [data-testid="stMetricValue"] {
         white-space: normal !important;
@@ -59,14 +62,19 @@ def _render_results(result: dict) -> None:
         line-height: 1.2;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+        unsafe_allow_html=True,
+    )
 
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Total value",       f"${result['total_value']:,.0f}")
-    c2.metric("# Holdings",        result["num_holdings"])
-    c3.metric("Diversification",   f"{result['diversification_score']:.2f}",
-              help="Higher = more diversified (0=concentrated, 1=perfectly spread)")
-    c4.metric("Risk profile",      result["risk_profile"])
+    c1.metric("Total value", f"${result['total_value']:,.0f}")
+    c2.metric("# Holdings", result["num_holdings"])
+    c3.metric(
+        "Diversification",
+        f"{result['diversification_score']:.2f}",
+        help="Higher = more diversified (0=concentrated, 1=perfectly spread)",
+    )
+    c4.metric("Risk profile", result["risk_profile"])
 
     if result["weighted_expense_ratio"] is not None:
         st.caption(
@@ -126,19 +134,27 @@ def render() -> None:
     # Add-row form (for users who want explicit entry)
     with st.expander("➕  Add a holding"):
         col_t, col_v, col_c, col_e = st.columns([1, 1, 1, 1])
-        with col_t: new_ticker = st.text_input("Ticker", key="new_ticker")
-        with col_v: new_value  = st.number_input("$ Value", min_value=0.0, value=1000.0, key="new_value")
-        with col_c: new_class  = st.selectbox("Asset class", VALID_CLASSES, key="new_class")
-        with col_e: new_er     = st.number_input("Expense ratio %", min_value=0.0, value=0.0, format="%.3f", key="new_er")
+        with col_t:
+            new_ticker = st.text_input("Ticker", key="new_ticker")
+        with col_v:
+            new_value = st.number_input("$ Value", min_value=0.0, value=1000.0, key="new_value")
+        with col_c:
+            new_class = st.selectbox("Asset class", VALID_CLASSES, key="new_class")
+        with col_e:
+            new_er = st.number_input(
+                "Expense ratio %", min_value=0.0, value=0.0, format="%.3f", key="new_er"
+            )
 
         if st.button("Add", use_container_width=True):
             if new_ticker.strip():
-                st.session_state.portfolio_holdings.append({
-                    "ticker":        new_ticker.strip().upper(),
-                    "value_usd":     float(new_value),
-                    "asset_class":   new_class,
-                    "expense_ratio": float(new_er) if new_er > 0 else None,
-                })
+                st.session_state.portfolio_holdings.append(
+                    {
+                        "ticker": new_ticker.strip().upper(),
+                        "value_usd": float(new_value),
+                        "asset_class": new_class,
+                        "expense_ratio": float(new_er) if new_er > 0 else None,
+                    }
+                )
                 st.rerun()
 
     if not st.session_state.portfolio_holdings:

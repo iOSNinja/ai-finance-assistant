@@ -43,25 +43,41 @@ class HumanFormatter(logging.Formatter):
 
     # Built-in LogRecord attributes — any record attribute NOT in this set
     # came from `extra={...}` and should be displayed inline.
-    _STANDARD_ATTRS = frozenset({
-        "name", "msg", "args", "levelname", "levelno",
-        "pathname", "filename", "module", "exc_info", "exc_text",
-        "stack_info", "lineno", "funcName", "created", "msecs",
-        "relativeCreated", "thread", "threadName",
-        "processName", "process", "message", "asctime",
-        "trace_id",     # exclude — UUID is too noisy for terminal display
-        "taskName",     # Python 3.12+ adds this
-    })
+    _STANDARD_ATTRS = frozenset(
+        {
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "message",
+            "asctime",
+            "trace_id",  # exclude — UUID is too noisy for terminal display
+            "taskName",  # Python 3.12+ adds this
+        }
+    )
 
     def format(self, record: logging.LogRecord) -> str:
         # Render the standard pipe-delimited base
         base = super().format(record)
 
         # Collect anything passed via extra={...}
-        extras = {
-            k: v for k, v in record.__dict__.items()
-            if k not in self._STANDARD_ATTRS
-        }
+        extras = {k: v for k, v in record.__dict__.items() if k not in self._STANDARD_ATTRS}
 
         if not extras:
             return base
@@ -77,6 +93,7 @@ class TraceIdFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         try:
             from langsmith.run_helpers import get_current_run_tree
+
             run = get_current_run_tree()
             record.trace_id = str(run.id) if run else None
         except Exception:

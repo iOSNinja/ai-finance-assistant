@@ -6,12 +6,14 @@ Run from project root:
 """
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 
 # Ensure project root on sys.path so `from src...` works under Streamlit's launcher
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import streamlit as st
@@ -50,18 +52,25 @@ def render_hero() -> None:
 
 
 def render_tabs() -> None:
-    tab_chat, tab_portfolio, tab_markets, tab_goals, tab_knowledge = st.tabs([
-        "Chat",
-        "Portfolio",
-        "Markets",
-        "Goals",
-        "Library",
-    ])
-    with tab_chat:      chat.render()
-    with tab_portfolio: portfolio.render()
-    with tab_markets:   markets.render()
-    with tab_goals:     goals.render()
-    with tab_knowledge: knowledge.render()
+    tab_chat, tab_portfolio, tab_markets, tab_goals, tab_knowledge = st.tabs(
+        [
+            "Chat",
+            "Portfolio",
+            "Markets",
+            "Goals",
+            "Library",
+        ]
+    )
+    with tab_chat:
+        chat.render()
+    with tab_portfolio:
+        portfolio.render()
+    with tab_markets:
+        markets.render()
+    with tab_goals:
+        goals.render()
+    with tab_knowledge:
+        knowledge.render()
 
 
 def main() -> None:

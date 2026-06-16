@@ -11,6 +11,7 @@ tax-year / contribution-year references ("for 2024 the limit is...").
 Initialized lazily so import doesn't pay the spaCy load cost unless
 guards actually fire.
 """
+
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
@@ -28,7 +29,7 @@ ENTITY_TYPES = [
     "US_BANK_NUMBER",
     "US_DRIVER_LICENSE",
     "LOCATION",
-    "DATE_TIME",        # kept; filtered post-hoc to DOB-context-only
+    "DATE_TIME",  # kept; filtered post-hoc to DOB-context-only
     "IP_ADDRESS",
     "IBAN_CODE",
 ]
@@ -37,9 +38,14 @@ ENTITY_TYPES = [
 # indicate the date is a date-of-birth (worth redacting) rather than
 # a tax year / contribution year / general date reference (not PII).
 DOB_CONTEXT_MARKERS = [
-    "born on", "born in", "born:",
-    "dob", "d.o.b",
-    "date of birth", "birth date", "birthdate",
+    "born on",
+    "born in",
+    "born:",
+    "dob",
+    "d.o.b",
+    "date of birth",
+    "birth date",
+    "birthdate",
     "birthday",
     "my birth",
 ]
@@ -51,6 +57,7 @@ def _get_engines():
     if _analyzer is None:
         from presidio_analyzer import AnalyzerEngine
         from presidio_anonymizer import AnonymizerEngine
+
         logger.info("Initializing Presidio engines (one-time cost)")
         _analyzer = AnalyzerEngine()
         _anonymizer = AnonymizerEngine()
@@ -71,7 +78,7 @@ def _is_dob_context(text: str, match_start: int, window: int = 30) -> bool:
         "What's the limit for 2024?"
         "March 15, 2024 deadline"
     """
-    pre = text[max(0, match_start - window):match_start].lower()
+    pre = text[max(0, match_start - window) : match_start].lower()
     return any(marker in pre for marker in DOB_CONTEXT_MARKERS)
 
 
@@ -100,8 +107,10 @@ def redact_pii(text: str, score_threshold: float = 0.5) -> tuple[str, list[dict]
         filtered = []
         for r in results:
             if r.entity_type == "DATE_TIME" and not _is_dob_context(text, r.start):
-                logger.debug("DATE_TIME match dropped — no DOB context",
-                             extra={"snippet": text[r.start:r.end][:30]})
+                logger.debug(
+                    "DATE_TIME match dropped — no DOB context",
+                    extra={"snippet": text[r.start : r.end][:30]},
+                )
                 continue
             filtered.append(r)
 
@@ -112,7 +121,7 @@ def redact_pii(text: str, score_threshold: float = 0.5) -> tuple[str, list[dict]
             {
                 "type": r.entity_type,
                 "score": round(r.score, 3),
-                "snippet": text[r.start:r.end][:40],
+                "snippet": text[r.start : r.end][:40],
             }
             for r in filtered
         ]
@@ -121,9 +130,13 @@ def redact_pii(text: str, score_threshold: float = 0.5) -> tuple[str, list[dict]
         return anonymized.text, audit
 
     except Exception as e:
-        logger.error("Presidio PII redaction failed", extra={
-            "error_type": type(e).__name__, "error": str(e),
-        })
+        logger.error(
+            "Presidio PII redaction failed",
+            extra={
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
+        )
         return text, []
 
 
@@ -181,7 +194,7 @@ def redact_pii_output(text: str, score_threshold: float = 0.85) -> tuple[str, li
             {
                 "type": r.entity_type,
                 "score": round(r.score, 3),
-                "snippet": text[r.start:r.end][:40],
+                "snippet": text[r.start : r.end][:40],
             }
             for r in results
         ]
@@ -190,7 +203,11 @@ def redact_pii_output(text: str, score_threshold: float = 0.85) -> tuple[str, li
         return anonymized.text, audit
 
     except Exception as e:
-        logger.error("Presidio output redaction failed", extra={
-            "error_type": type(e).__name__, "error": str(e),
-        })
+        logger.error(
+            "Presidio output redaction failed",
+            extra={
+                "error_type": type(e).__name__,
+                "error": str(e),
+            },
+        )
         return text, []

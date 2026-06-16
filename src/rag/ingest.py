@@ -1,7 +1,7 @@
 """
 ingest.py — Building the Finnie knowledge base from declared sources.
 
-Reads all declared knowledge sources, downloads/loads their content, splits the content into 
+Reads all declared knowledge sources, downloads/loads their content, splits the content into
 smaller chunks, creates embeddings for those chunks, and saves them into Chroma vector database.
 
 Clears the existing Chroma collection before re-ingesting, so output is deterministic.

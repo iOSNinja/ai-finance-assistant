@@ -2,13 +2,12 @@
 
 import streamlit as st
 
+from src.core.config import embeddings
 from src.main import FinnieAIFinanceAssistant
-from src.utils.logger import setup_logger
-
 from src.observability.context import cost_tracker_for_request
 from src.observability.cost_tracker import CostTracker
 from src.observability.semantic_cache import SemanticCache
-from src.core.config import embeddings
+from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
@@ -49,8 +48,8 @@ def _ensure_session_cache() -> SemanticCache:
     if "semantic_cache" not in st.session_state:
         st.session_state.semantic_cache = SemanticCache(
             embeddings=embeddings,
-            threshold=0.75,        # Calibrated against 39 labeled pairs; zero FPs at 83% recal
-            ttl_seconds=3600.0,    # 1 hour
+            threshold=0.75,  # Calibrated against 39 labeled pairs; zero FPs at 83% recal
+            ttl_seconds=3600.0,  # 1 hour
             max_size=100,
         )
     return st.session_state.semantic_cache
@@ -88,18 +87,23 @@ def _handle_query(user_query: str) -> None:
                 except Exception as cache_err:
                     logger.warning(
                         "Cache get failed — falling back to graph",
-                        extra={"error_type": type(cache_err).__name__,
-                               "error": str(cache_err)[:200]},
+                        extra={
+                            "error_type": type(cache_err).__name__,
+                            "error": str(cache_err)[:200],
+                        },
                     )
                     cached_response = None
 
                 if cached_response is not None:
                     # 2. Cache HIT — return immediately. Zero LLM cost.
                     response = cached_response
-                    logger.info("Cache hit", extra={
-                        "query_preview": user_query[:60],
-                        "hit_rate": cache.hit_rate,
-                    })
+                    logger.info(
+                        "Cache hit",
+                        extra={
+                            "query_preview": user_query[:60],
+                            "hit_rate": cache.hit_rate,
+                        },
+                    )
                 else:
                     # 3. Cache MISS — snapshot cost, run graph, then store.
                     cost_before = tracker.total_cost_usd
@@ -109,14 +113,15 @@ def _handle_query(user_query: str) -> None:
 
                     # 4. Write-through: store result + its cost (for $ saved math).
                     try:
-                        cache.put(user_query, response,
-                                  cost_to_compute_usd=query_cost)
+                        cache.put(user_query, response, cost_to_compute_usd=query_cost)
                     except Exception as cache_err:
                         # Cache put failure is also non-fatal — just log it.
                         logger.warning(
                             "Cache put failed — response delivered anyway",
-                            extra={"error_type": type(cache_err).__name__,
-                                   "error": str(cache_err)[:200]},
+                            extra={
+                                "error_type": type(cache_err).__name__,
+                                "error": str(cache_err)[:200],
+                            },
                         )
             except Exception as e:
                 logger.exception("Graph invocation failed in chat tab")

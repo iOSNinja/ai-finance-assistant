@@ -16,9 +16,9 @@ src/observability/token_counter.py — Pre-flight token + cost estimation.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Sequence
 
 import tiktoken
 from langchain_core.messages import BaseMessage
@@ -26,15 +26,15 @@ from langchain_core.messages import BaseMessage
 # Per-model pricing (in USD per 1M tokens)
 # Source: https://openai.com/api/pricing
 # We use floats per 1M tokens so the multiplication is readable in code.
-# Heuristics (educated guesses) for prediction. Because we don't know how long the AI's reply will be, 
+# Heuristics (educated guesses) for prediction. Because we don't know how long the AI's reply will be,
 # we guess it will be 40% of the input length, but we cap it at 800 tokens so our cost calculations don't accidentally skyrocket.
 _MODEL_PRICING: dict[str, tuple[float, float]] = {
     # model_name: (input_per_1M, output_per_1M)
-    "gpt-4o-mini":        (0.15,  0.60),
-    "gpt-4o":             (2.50,  10.00),
-    "gpt-4o-mini-2024-07-18": (0.15,  0.60),
-    "gpt-4-turbo":        (10.00, 30.00),
-    "text-embedding-3-small": (0.02, 0.0),   # embeddings have no output cost
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4o-mini-2024-07-18": (0.15, 0.60),
+    "gpt-4-turbo": (10.00, 30.00),
+    "text-embedding-3-small": (0.02, 0.0),  # embeddings have no output cost
     "text-embedding-3-large": (0.13, 0.0),
 }
 
@@ -47,41 +47,43 @@ _MODEL_PRICING: dict[str, tuple[float, float]] = {
 _OUTPUT_RATIO = 0.40
 _OUTPUT_CAP_TOKENS = 800
 
+
 @dataclass
 class TokenEstimate:
     """Result of estimate_tokens(): inputs, estimated output and $ cost.
-    
+
     Frozen so callers can use it as a dict key or pass it around safely.
     Slots saves memory (matters when we estimate thousands per minute).
     """
 
-    model:               str
-    input_tokens:        int
+    model: str
+    input_tokens: int
     estimated_output_tokens: int
-    input_cost_usd:      float
+    input_cost_usd: float
     estimated_output_cost_usd: float
 
-    #computed property
+    # computed property
     # blocks dynamically add up input and output costs/tokens on the fly whenever a user asks for the totals.
     @property
     def estimated_total_cost_usd(self) -> float:
         return self.input_cost_usd + self.estimated_output_cost_usd
-    
-    #computed property
+
+    # computed property
     @property
     def estimated_total_tokens(self) -> int:
         return self.input_tokens + self.estimated_output_tokens
-    
+
+
 # Encoder singleton (one per model, cached)
 @lru_cache(maxsize=8)
 def _encoder_for(model: str) -> tiktoken.Encoding:
     """Cache tiktoken encoders per model — they're not cheap to construct.
-    
-    Downloading or building token encoders takes time and CPU power. 
-    This decorator memorizes(lru_cache) (caches) the results of the function. 
-    If you call _encoder_for("gpt-4o") once, Python computes it. 
-    The next time you call it with "gpt-4o", Python skips the code inside the function entirely 
-    and immediately hands you the cached result.maxsize=8 means it will remember the 8 most 
+
+    Downloading or building token encoders takes time and CPU power.
+    This decorator memorizes(lru_cache) (caches) the results of the function.
+    If you call _encoder_for("gpt-4o") once, Python computes it.
+    The next time you call it with "gpt-4o", Python skips the code inside the function entirely
+    and immediately hands you the cached result.maxsize=8 means it will remember the 8 most
     recently used models. If a 9th model shows up, it discards the oldest one.
     """
     try:
@@ -98,7 +100,7 @@ def estimate_tokens(
     model: str = "gpt-4o-mini",
 ) -> TokenEstimate:
     """Estimate input tokens, output tokens, and total $ cost for an LLM call.
-    
+
     Args:
         messages: Either a list of LangChain BaseMessage objects, a list of
                   dicts with {role, content}, or a single string. All three
@@ -117,9 +119,7 @@ def estimate_tokens(
 
     est_output_tokens = min(int(input_tokens * _OUTPUT_RATIO), _OUTPUT_CAP_TOKENS)
 
-    input_per_1M, output_per_1M = _MODEL_PRICING.get(
-        model, _MODEL_PRICING["gpt-4o-mini"]
-    )
+    input_per_1M, output_per_1M = _MODEL_PRICING.get(model, _MODEL_PRICING["gpt-4o-mini"])
     input_cost = (input_tokens / 1_000_000) * input_per_1M
     estimated_output_cost = (est_output_tokens / 1_000_000) * output_per_1M
 
@@ -138,9 +138,7 @@ def estimate_cost(
     model: str = "gpt-4o-mini",
 ) -> float:
     """Compute $ cost from known token counts."""
-    input_per_1M, output_per_1M = _MODEL_PRICING.get(
-        model, _MODEL_PRICING["gpt-4o-mini"]
-    )
+    input_per_1M, output_per_1M = _MODEL_PRICING.get(model, _MODEL_PRICING["gpt-4o-mini"])
     input_cost = (input_tokens / 1_000_000) * input_per_1M
     output_cost = (output_tokens / 1_000_000) * output_per_1M
     return round(input_cost + output_cost, 8)

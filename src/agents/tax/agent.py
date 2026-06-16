@@ -8,18 +8,18 @@ tax_messages and tax_response in state.
 from typing import Literal
 
 from langchain_core.messages import (
-    SystemMessage,
-    HumanMessage,
     AIMessage,
     AnyMessage,
+    HumanMessage,
+    SystemMessage,
 )
 from langgraph.prebuilt import ToolNode
 
-from src.utils.logger import setup_logger
-from src.core.config import llm
-from src.agents.tax.tool import tax_tools_list
-from src.state import FinnieState
 from src.agents.prompts import TAX_AGENT_PROMPT
+from src.agents.tax.tool import tax_tools_list
+from src.core.config import llm
+from src.state import FinnieState
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.agents.tax.agent")
 
@@ -28,12 +28,10 @@ logger = setup_logger("finnie.agents.tax.agent")
 tax_llm = llm.bind_tools(tax_tools_list)
 
 # 2. create tax_tools_node using LangGraph's prebuilt ToolNode
-tax_tools_node = ToolNode(
-    tools=tax_tools_list,
-    messages_key="tax_messages"
-)
+tax_tools_node = ToolNode(tools=tax_tools_list, messages_key="tax_messages")
 
-MAX_AGENT_ITERATIONS = 5 # this is to prevent the llm making infinite tool calling calls
+MAX_AGENT_ITERATIONS = 5  # this is to prevent the llm making infinite tool calling calls
+
 
 # 3. create tax_agent_node
 def tax_agent_node(state: FinnieState) -> dict:
@@ -71,7 +69,7 @@ def tax_agent_node(state: FinnieState) -> dict:
         # return fallback message in tax_messages & tax_response
         logger.warning(
             "Tax agent hit MAX_AGENT_ITERATIONS - forcing fallback",
-            extra={"max_iterations": MAX_AGENT_ITERATIONS}
+            extra={"max_iterations": MAX_AGENT_ITERATIONS},
         )
 
         fallback = (
@@ -80,14 +78,10 @@ def tax_agent_node(state: FinnieState) -> dict:
             "or consult a CPA."
         )
 
-        return {
-            "tax_messages": [AIMessage(content=fallback)],
-            "tax_response": fallback
-        }
-   
+        return {"tax_messages": [AIMessage(content=fallback)], "tax_response": fallback}
+
     logger.info(
-       "Tax agent: invoking LLM",
-       extra={"history_len": len(tax_msgs), "loop_cnt": loop_cnt}
+        "Tax agent: invoking LLM", extra={"history_len": len(tax_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -100,7 +94,9 @@ def tax_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("Tax agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
+        logger.error(
+            "Tax agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)}
+        )
         # return error message in tax_messages & tax_response
         err = (
             "I ran into an issue answering your tax question. Please retry or rephrase your question.",
@@ -111,19 +107,23 @@ def tax_agent_node(state: FinnieState) -> dict:
             "tax_response": err,
         }
 
-
     # If LLM response has tool_calls → only update tax_messages; the conditional edge will route to tax_tools_node
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"tax_messages": [response]}
 
     if has_tools:
-        logger.info("Tax agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
+        logger.info(
+            "Tax agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)}
+        )
     else:
         # If response is plain text → update tax_messages AND set tax_response; the conditional edge will route to synthesizer_node
         update["tax_response"] = response.content or ""
-        logger.info("Tax agent produced final answer", extra={"response_len": len(update["tax_response"])})
+        logger.info(
+            "Tax agent produced final answer", extra={"response_len": len(update["tax_response"])}
+        )
 
     return update
+
 
 # 4. Check if conditional edge should continue to tool_calling loop or route to synthesizer node
 def should_continue_tax(state: FinnieState) -> Literal["tax_tools_node", "synthesizer_node"]:
@@ -131,7 +131,7 @@ def should_continue_tax(state: FinnieState) -> Literal["tax_tools_node", "synthe
     tax_msgs = state.get("tax_messages", [])
     if not tax_msgs:
         return "synthesizer_node"
-    
+
     last_msg = tax_msgs[-1]
     if isinstance(last_msg, AIMessage) and getattr(last_msg, "tool_calls", None):
         return "tax_tools_node"

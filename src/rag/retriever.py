@@ -36,13 +36,17 @@ def kb_search(query: str, category: str | None = None, top_k: int = 5) -> list[d
         A list of dicts with keys: text, source_url, source_name, category, relevance.
         Returns [] on failure or no matches.
     """
-    logger.info("kb_search called", extra={"query": query[:80], "category": category, "top_k": top_k})
+    logger.info(
+        "kb_search called", extra={"query": query[:80], "category": category, "top_k": top_k}
+    )
 
     where = {"category": category} if category else None
 
     try:
         results = _store.similarity_search_with_relevance_scores(
-            query=query, k=top_k, filter=where,
+            query=query,
+            k=top_k,
+            filter=where,
         )
     except Exception as e:
         logger.error("kb_search failed", extra={"error_type": type(e).__name__, "error": str(e)})
@@ -50,11 +54,11 @@ def kb_search(query: str, category: str | None = None, top_k: int = 5) -> list[d
 
     return [
         {
-            "text":        doc.page_content,
-            "source_url":  doc.metadata.get("source_url", ""),
+            "text": doc.page_content,
+            "source_url": doc.metadata.get("source_url", ""),
             "source_name": doc.metadata.get("source_name", ""),
-            "category":    doc.metadata.get("category", ""),
-            "relevance":   round(float(score), 4),
+            "category": doc.metadata.get("category", ""),
+            "relevance": round(float(score), 4),
         }
         for doc, score in results
     ]

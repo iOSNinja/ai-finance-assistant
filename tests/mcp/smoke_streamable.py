@@ -15,6 +15,7 @@ WHAT THIS PROVES:
   3. At least one tool executes end-to-end over Streamable HTTP
   (Same protocol surface as smoke_sse.py — different transport envelope.)
 """
+
 import asyncio
 import json
 import os
@@ -23,7 +24,6 @@ from typing import Any
 
 from mcp import ClientSession
 from mcp.client.streamable_http import streamablehttp_client
-
 
 STREAMABLE_URL = os.environ.get("FINNIE_MCP_STREAMABLE_URL", "http://localhost:8001/mcp")
 EXPECTED_TOOLS = 9
@@ -61,15 +61,15 @@ async def main() -> int:
     # for the smoke test, so we discard it with `_`.
     async with streamablehttp_client(STREAMABLE_URL) as (read, write, _):
         async with ClientSession(read, write) as session:
-
-            print(f"[2/4] Sending MCP initialize handshake...")
+            print("[2/4] Sending MCP initialize handshake...")
             init_result = await session.initialize()
-            print(f"      Server:   {init_result.serverInfo.name} "
-                  f"v{init_result.serverInfo.version}")
+            print(
+                f"      Server:   {init_result.serverInfo.name} v{init_result.serverInfo.version}"
+            )
             print(f"      Protocol: {init_result.protocolVersion}")
             print()
 
-            print(f"[3/4] Discovering tools and prompts...")
+            print("[3/4] Discovering tools and prompts...")
             tools_response = await session.list_tools()
             prompts_response = await session.list_prompts()
 
@@ -87,7 +87,7 @@ async def main() -> int:
             )
             print()
 
-            print(f"[4/4] Calling tool: project_growth($10K start, $500/mo, 25y, 7%)")
+            print("[4/4] Calling tool: project_growth($10K start, $500/mo, 25y, 7%)")
             result = await session.call_tool(
                 "project_growth",
                 {

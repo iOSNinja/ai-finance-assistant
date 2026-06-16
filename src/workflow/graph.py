@@ -11,23 +11,10 @@ Orchestrator dispatches to agents via Command(goto=Send(...)) — no fixed edges
 from orchestrator to agents.
 """
 
-from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.memory import MemorySaver
-from src.guardrails import check_input, scrub_output
+from langgraph.graph import END, START, StateGraph
 
-from src.state import FinnieState
-from src.utils.logger import setup_logger
-from src.state import FinnieState
-from src.agents.orchestrator import orchestrator_node
-from src.agents.synthesizer import synthesizer_node
-from src.agents.qa.agent import qa_agent_node, qa_tools_node, should_continue_qa
-from src.agents.tax.agent import tax_agent_node, tax_tools_node, should_continue_tax
 from src.agents.goal.agent import goal_agent_node, goal_tools_node, should_continue_goal
-from src.agents.portfolio.agent import (
-    portfolio_agent_node,
-    portfolio_tools_node,
-    should_continue_portfolio,
-)
 from src.agents.market.agent import (
     market_agent_node,
     market_tools_node,
@@ -38,6 +25,18 @@ from src.agents.news.agent import (
     news_tools_node,
     should_continue_news,
 )
+from src.agents.orchestrator import orchestrator_node
+from src.agents.portfolio.agent import (
+    portfolio_agent_node,
+    portfolio_tools_node,
+    should_continue_portfolio,
+)
+from src.agents.qa.agent import qa_agent_node, qa_tools_node, should_continue_qa
+from src.agents.synthesizer import synthesizer_node
+from src.agents.tax.agent import should_continue_tax, tax_agent_node, tax_tools_node
+from src.guardrails import check_input, scrub_output
+from src.state import FinnieState
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.workflow.graph")
 
@@ -49,24 +48,25 @@ SAFE_FALLBACK = (
     "financial news. If you have a question on one of these topics, please rephrase."
 )
 
+
 def input_guard_node(state: FinnieState) -> dict:
     """Pre-orchestrator input safety. Blocks unsafe OR forwards a cleaned query."""
     result = check_input(state["user_query"])
     if not result.is_safe:
         # Block path
         return {
-            "is_safe_input":        False,
+            "is_safe_input": False,
             "input_block_category": result.category,
-            "final_answer":         SAFE_FALLBACK,
-            "route":                [],
+            "final_answer": SAFE_FALLBACK,
+            "route": [],
         }
-    
+
     # Safe path — forward cleaned query (which may equal original if no PII found)
     return {
-        "is_safe_input":        True,
+        "is_safe_input": True,
         "input_block_category": "ok",
-        "user_query":           result.cleaned_query,    # may be redacted
-        "input_redactions":     result.input_redactions,
+        "user_query": result.cleaned_query,  # may be redacted
+        "input_redactions": result.input_redactions,
     }
 
 
@@ -87,6 +87,7 @@ def output_guard_node(state: FinnieState) -> dict:
 def _route_after_input_guard(state: FinnieState) -> str:
     """Conditional edge: skip everything if input blocked."""
     return "END" if not state.get("is_safe_input", True) else "orchestrator"
+
 
 def build_graph():
     """Construct, compile and return the Finnie AI Finance Assistant graph."""
@@ -114,7 +115,7 @@ def build_graph():
     builder.add_node("output_guard", output_guard_node)
 
     # --- Edges ----------------------------------------------------
-    
+
     # START -> input_guard (fixed)
     builder.add_edge(START, "input_guard")
     builder.add_conditional_edges(
@@ -123,16 +124,13 @@ def build_graph():
         {"orchestrator": "orchestrator", "END": END},
     )
 
-     # Orchestrator -> agent(s): handled internally by Command(goto=Send(...))
+    # Orchestrator -> agent(s): handled internally by Command(goto=Send(...))
 
     # Finance QA agent: conditional -> tools-node (loop) or synthesizer node
     builder.add_conditional_edges(
         "qa_agent_node",
         should_continue_qa,
-        {
-            "qa_tools_node": "qa_tools_node", 
-            "synthesizer_node": "synthesizer_node"
-        },  
+        {"qa_tools_node": "qa_tools_node", "synthesizer_node": "synthesizer_node"},
     )
 
     # tools-node back to agent-node
@@ -142,10 +140,7 @@ def build_graph():
     builder.add_conditional_edges(
         "tax_agent_node",
         should_continue_tax,
-        {
-            "tax_tools_node": "tax_tools_node",
-            "synthesizer_node": "synthesizer_node"
-        }
+        {"tax_tools_node": "tax_tools_node", "synthesizer_node": "synthesizer_node"},
     )
     # wire tools-node back to agent node
     builder.add_edge("tax_tools_node", "tax_agent_node")
@@ -155,7 +150,7 @@ def build_graph():
         "goal_agent_node",
         should_continue_goal,
         {
-            "goal_tools_node":  "goal_tools_node",
+            "goal_tools_node": "goal_tools_node",
             "synthesizer_node": "synthesizer_node",
         },
     )
@@ -168,7 +163,7 @@ def build_graph():
         should_continue_portfolio,
         {
             "portfolio_tools_node": "portfolio_tools_node",
-            "synthesizer_node":     "synthesizer_node",
+            "synthesizer_node": "synthesizer_node",
         },
     )
     # wire tools-node back to agent node
@@ -181,7 +176,7 @@ def build_graph():
         {
             "market_tools_node": "market_tools_node",
             "synthesizer_node": "synthesizer_node",
-        },   
+        },
     )
     # wire tools-node back to agent node
     builder.add_edge("market_tools_node", "market_agent_node")
@@ -191,7 +186,7 @@ def build_graph():
         "news_agent_node",
         should_continue_news,
         {
-            "news_tools_node":  "news_tools_node",
+            "news_tools_node": "news_tools_node",
             "synthesizer_node": "synthesizer_node",
         },
     )
@@ -208,4 +203,3 @@ def build_graph():
 
     logger.info("Finnie graph compiled", extra={"node_count": 14})
     return graph
-

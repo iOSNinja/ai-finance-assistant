@@ -68,9 +68,7 @@ def render() -> None:
             label_visibility="collapsed",
         )
     with col_cat:
-        category_choice = st.selectbox(
-            "Category", CATEGORIES, label_visibility="collapsed"
-        )
+        category_choice = st.selectbox("Category", CATEGORIES, label_visibility="collapsed")
 
     # Popular-topic chips — set pending and rerun; the block above will apply on next run
     st.markdown(

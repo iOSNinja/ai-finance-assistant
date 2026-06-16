@@ -3,9 +3,9 @@ Unit tests for CostTracker — accumulator, per-agent breakdown, edge-triggered 
 """
 
 from __future__ import annotations
-from src.observability.cost_tracker import CostRecord
 
 import pytest
+
 
 class TestCostTrackerAccumulation:
     """Verifies CostTracker correctly accumulates records and properties."""
@@ -28,6 +28,7 @@ class TestCostTrackerAccumulation:
         assert fresh_tracker.total_cost_usd == pytest.approx(0.005)
         assert fresh_tracker.avg_cost_per_call_usd == pytest.approx(0.001)
 
+
 class TestPerAgentSummary:
     """Verifies per_agent_summary() correctly groups records by agent_name."""
 
@@ -43,6 +44,7 @@ class TestPerAgentSummary:
         assert summary["tax"]["call_count"] == 1
         assert summary["tax"]["total_cost_usd"] == pytest.approx(0.005)
 
+
 class TestEdgeTriggeredAlerts:
     """Verifies budget alert fires ONCE per crossing, not on every subsequent call."""
 
@@ -54,8 +56,7 @@ class TestEdgeTriggeredAlerts:
 
         budget_alerts = [a for a in tight_budget_tracker.alerts if "BUDGET" in a]
         assert len(budget_alerts) == 1, (
-            f"Expected exactly 1 BUDGET WARNING, got {len(budget_alerts)}: "
-            f"{budget_alerts}"
+            f"Expected exactly 1 BUDGET WARNING, got {len(budget_alerts)}: {budget_alerts}"
         )
 
     def test_high_cost_fires_per_call(self, tight_budget_tracker, make_record):
@@ -87,5 +88,10 @@ class TestImmutableCostRecord:
     """CostRecord is frozen — verify we can't accidentally mutate one."""
 
     def test_record_is_frozen(self, sample_record):
-        with pytest.raises(Exception):    # FrozenInstanceError or AttributeError
+        # Frozen dataclasses raise FrozenInstanceError; with slots they may
+        # raise AttributeError instead. Catch both — they're the only valid
+        # exceptions for this scenario.
+        from dataclasses import FrozenInstanceError
+
+        with pytest.raises((FrozenInstanceError, AttributeError)):
             sample_record.cost_usd = 999.99

@@ -20,6 +20,7 @@ _splitter = RecursiveCharacterTextSplitter(
     separators=["\n\n", "\n", ". ", " ", ""],
 )
 
+
 def chunk_documents(docs: list[Document]) -> list[Document]:
     """Split documents into RAG-sized chunks, preserving metadata."""
     chunks = _splitter.split_documents(docs)

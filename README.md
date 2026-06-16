@@ -1,5 +1,7 @@
 # 🦊 Finnie — AI-Powered Personal Finance Tutor
 
+[![CI](https://github.com/iOSNinja/ai-finance-assistant/actions/workflows/ci.yml/badge.svg)](https://github.com/iOSNinja/ai-finance-assistant/actions/workflows/ci.yml)
+
 > Smart finance, plain English. A six-agent AI assistant for personal finance education — explains concepts, analyzes portfolios, projects savings, looks up live market data, and summarizes financial news. Grounded in curated sources. Never invents facts.
 
 ![Status](https://img.shields.io/badge/status-active%20development-emerald)

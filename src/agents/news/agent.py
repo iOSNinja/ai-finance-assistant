@@ -8,10 +8,10 @@ search_financial_news tool, writes to news_messages and news_response in state.
 from typing import Literal
 
 from langchain_core.messages import (
-    SystemMessage,
-    HumanMessage,
     AIMessage,
     AnyMessage,
+    HumanMessage,
+    SystemMessage,
 )
 from langgraph.prebuilt import ToolNode
 
@@ -33,7 +33,8 @@ news_tools_node = ToolNode(
     messages_key="news_messages",
 )
 
-MAX_AGENT_ITERATIONS = 5 # to prevent the agent from making infinite tool_calling
+MAX_AGENT_ITERATIONS = 5  # to prevent the agent from making infinite tool_calling
+
 
 # 3. defining the news_agent_node which runs the ReAct loop
 def news_agent_node(state: FinnieState) -> dict:
@@ -66,7 +67,7 @@ def news_agent_node(state: FinnieState) -> dict:
         # return fallback message in news_messages & news_response
         logger.warning(
             "News agent hit MAX_AGENT_ITERATIONS - forcing fallback",
-            extra={"max_iterations": MAX_AGENT_ITERATIONS}
+            extra={"max_iterations": MAX_AGENT_ITERATIONS},
         )
         fallback = (
             "I wasn't able to fetch news on that. Try a more specific query "
@@ -78,8 +79,7 @@ def news_agent_node(state: FinnieState) -> dict:
         }
 
     logger.info(
-        "News agent: invoking LLM",
-        extra={"history_len": len(news_msgs), "loop_cnt": loop_cnt}
+        "News agent: invoking LLM", extra={"history_len": len(news_msgs), "loop_cnt": loop_cnt}
     )
 
     # invoke the llm, check if llm says "run the tool calls" or did it produce a final answer
@@ -92,12 +92,11 @@ def news_agent_node(state: FinnieState) -> dict:
             },
         )
     except Exception as e:
-        logger.error("News agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
-        # return error message in news_messages & news_response
-        err = (
-            "I ran into an issue fetching news. "
-            "Please try again or rephrase your question."
+        logger.error(
+            "News agent LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)}
         )
+        # return error message in news_messages & news_response
+        err = "I ran into an issue fetching news. Please try again or rephrase your question."
         return {
             "news_messages": [AIMessage(content=err)],
             "news_response": err,
@@ -107,13 +106,19 @@ def news_agent_node(state: FinnieState) -> dict:
     has_tools = bool(getattr(response, "tool_calls", None))
     update: dict = {"news_messages": [response]}
     if has_tools:
-        logger.info("News agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)})
+        logger.info(
+            "News agent requested tool calls", extra={"tool_calls_count": len(response.tool_calls)}
+        )
     else:
         # If response is plain text → update news_messages AND set news_response; the conditional edge will route to synthesizer_node
         update["news_response"] = response.content or ""
-        logger.info("News agent: produced final answer", extra={"response_len": len(update["news_response"])})
+        logger.info(
+            "News agent: produced final answer",
+            extra={"response_len": len(update["news_response"])},
+        )
 
     return update
+
 
 # 4. Check if conditional edge should continue to tool_calling loop or route to synthesizer node
 def should_continue_news(
@@ -123,9 +128,9 @@ def should_continue_news(
     news_msgs = state.get("news_messages", [])
     if not news_msgs:
         return "synthesizer_node"
-    
+
     last = news_msgs[-1]
     if isinstance(last, AIMessage) and getattr(last, "tool_calls", None):
         return "news_tools_node"
-    
+
     return "synthesizer_node"

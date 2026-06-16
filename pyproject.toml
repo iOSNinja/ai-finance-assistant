@@ -62,13 +62,21 @@ select = [
     "C4",   # flake8-comprehensions
 ]
 ignore = [
-    "E501",   # line too long — we use the formatter for length
+    "E501",   # line too long — formatter handles length
+    "E701",   # one-line if/with — your compact code is more readable than the split version
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # Overriding Linter Rules Per-File
-"scripts/**" = ["E402", "F401"]
-"tests/eval/**" = ["E402"]
+# load_dotenv() / sys.stdout swap / lazy callback wiring all require
+# imports to come AFTER setup code. E402 doesn't understand that.
+"scripts/**"              = ["E402", "F401"]
+"tests/eval/**"           = ["E402"]
+"tests/mcp/**"            = ["E402"]
+"src/web_app/app.py"      = ["E402"]
+"src/main.py"             = ["E402"]
+"src/mcp_server/run_stdio.py" = ["E402"]
+"src/core/config.py"      = ["E402"]
 
 [tool.ruff.format]
 # configuration block for code rewriting stylization.

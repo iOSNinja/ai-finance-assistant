@@ -2,7 +2,8 @@
 Smoke test for the Orchestrator's routing decisions
 """
 
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import HumanMessage, SystemMessage
+
 from src.agents.orchestrator import routing_llm
 from src.agents.prompts import ORCHESTRATOR_PROMPT
 
@@ -20,10 +21,12 @@ TEST_QUERIES = [
 ]
 
 for q in TEST_QUERIES:
-    decision = routing_llm.invoke([
-        SystemMessage(content=ORCHESTRATOR_PROMPT),
-        HumanMessage(content=q),
-    ])
+    decision = routing_llm.invoke(
+        [
+            SystemMessage(content=ORCHESTRATOR_PROMPT),
+            HumanMessage(content=q),
+        ]
+    )
 
     print(f"\nQ: {q}")
     print(f"  Agents:    {decision.agents}")

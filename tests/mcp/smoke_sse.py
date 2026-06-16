@@ -14,6 +14,7 @@ WHAT THIS PROVES:
   2. Discovery returns the same 9 tools + 2 prompts as stdio
   3. At least one tool executes end-to-end over HTTP
 """
+
 import asyncio
 import json
 import os
@@ -22,7 +23,6 @@ from typing import Any
 
 from mcp import ClientSession
 from mcp.client.sse import sse_client
-
 
 SSE_URL = os.environ.get("FINNIE_MCP_SSE_URL", "http://localhost:8001/sse")
 EXPECTED_TOOLS = 9
@@ -57,15 +57,15 @@ async def main() -> int:
 
     async with sse_client(SSE_URL) as (read, write):
         async with ClientSession(read, write) as session:
-
-            print(f"[2/4] Sending MCP initialize handshake...")
+            print("[2/4] Sending MCP initialize handshake...")
             init_result = await session.initialize()
-            print(f"      Server:   {init_result.serverInfo.name} "
-                  f"v{init_result.serverInfo.version}")
+            print(
+                f"      Server:   {init_result.serverInfo.name} v{init_result.serverInfo.version}"
+            )
             print(f"      Protocol: {init_result.protocolVersion}")
             print()
 
-            print(f"[3/4] Discovering tools and prompts...")
+            print("[3/4] Discovering tools and prompts...")
             tools_response = await session.list_tools()
             prompts_response = await session.list_prompts()
 
@@ -83,7 +83,7 @@ async def main() -> int:
             )
             print()
 
-            print(f"[4/4] Calling tool: required_monthly_savings(target=$500K, 20y, 8%)")
+            print("[4/4] Calling tool: required_monthly_savings(target=$500K, 20y, 8%)")
             result = await session.call_tool(
                 "required_monthly_savings",
                 {

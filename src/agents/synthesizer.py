@@ -4,12 +4,12 @@ into a single coherent reply, with the standard compliance disclaimer
 appended deterministically.
 """
 
-from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
-from src.utils.logger import setup_logger
-from src.state import FinnieState
-from src.core.config import llm
 from src.agents.prompts import SYNTHESIZER_PROMPT
+from src.core.config import llm
+from src.state import FinnieState
+from src.utils.logger import setup_logger
 
 logger = setup_logger("finnie.agents.synthesizer")
 
@@ -28,11 +28,12 @@ DISCLAIMER = (
 _AGENT_FIELDS: dict[str, str] = {
     "qa_response": "Finance Q&A",
     "portfolio_response": "Portfolio Analysis",
-    "market_response":    "Market Analysis",
-    "goal_response":      "Goal Planning",
-    "news_response":      "News Synthesizer",
-    "tax_response":       "Tax Education",
+    "market_response": "Market Analysis",
+    "goal_response": "Goal Planning",
+    "news_response": "News Synthesizer",
+    "tax_response": "Tax Education",
 }
+
 
 def _maybe_append_disclaimer(text: str, state: FinnieState) -> str:
     """Append the educational disclaimer ONLY for finance queries.
@@ -40,6 +41,7 @@ def _maybe_append_disclaimer(text: str, state: FinnieState) -> str:
     if state.get("is_finance_query", True):
         return text + DISCLAIMER
     return text
+
 
 def synthesizer_node(state: FinnieState) -> dict:
     """Merge agent outputs into a single response, then append the disclaimer."""
@@ -50,7 +52,9 @@ def synthesizer_node(state: FinnieState) -> dict:
         if value:
             contributions.append((label, value))
 
-    logger.info("Synthesizing agent contributions", extra={"contribution_count": len(contributions)})
+    logger.info(
+        "Synthesizing agent contributions", extra={"contribution_count": len(contributions)}
+    )
 
     # No agent produced anything — return fallback
     if not contributions:
@@ -80,21 +84,26 @@ def synthesizer_node(state: FinnieState) -> dict:
 
     try:
         response = llm.invoke(
-            [SystemMessage(content=SYNTHESIZER_PROMPT),
-            HumanMessage(
-                content=(
-                    f"User query:\n{user_query}\n\n"
-                    f"Agent outputs:\n{agent_block}"
-                )
-            )],
+            [
+                SystemMessage(content=SYNTHESIZER_PROMPT),
+                HumanMessage(
+                    content=(f"User query:\n{user_query}\n\nAgent outputs:\n{agent_block}")
+                ),
+            ],
             config={
                 "run_name": "synthesizer.merge",
-                "tags": ["agent:synthesizer", "operation:synthesis", f"agents_merged:{len(contributions)}"],
+                "tags": [
+                    "agent:synthesizer",
+                    "operation:synthesis",
+                    f"agents_merged:{len(contributions)}",
+                ],
             },
         )
         merged = response.content or ""
     except Exception as e:
-        logger.error("Synthesizer LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)})
+        logger.error(
+            "Synthesizer LLM call failed", extra={"error_type": type(e).__name__, "error": str(e)}
+        )
         # Fallback to a simple concatenation if the LLM can't merge
         merged = "\n\n".join(text for _, text in contributions)
 
@@ -105,4 +114,3 @@ def synthesizer_node(state: FinnieState) -> dict:
         "final_answer": final_answer,
         "messages": [AIMessage(content=final_answer)],
     }
-    

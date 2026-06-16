@@ -2,21 +2,22 @@
 tests/eval/evaluators.py - Evaluators that score Finnie's quality
 """
 
-from typing import Any
 import json
-from langchain_openai import ChatOpenAI
+from typing import Any
+
 from langchain_core.prompts import ChatPromptTemplate
 
-from src.utils.logger import setup_logger
 from src.core.config import judge_llm
+from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
 
 # define 3 routing evaluators
-    # 1. routing_accuracy - headline metric - strict match
-    # 2. routing_precision - catches overrouting(fanning out to multiple agents, when single agent would do - cost waste)
-    # 3. routing_recall - catches underrouting(missed agents - quality loss)
+# 1. routing_accuracy - headline metric - strict match
+# 2. routing_precision - catches overrouting(fanning out to multiple agents, when single agent would do - cost waste)
+# 3. routing_recall - catches underrouting(missed agents - quality loss)
+
 
 # 1. Routing accuracy
 # The most critical metric —> wrong routing = wrong answer (regardless of agent quality)
@@ -37,10 +38,10 @@ def routing_accuracy(run: Any, example: Any) -> dict:
         }
 
     # Calculating Precision, Recall & F1 metrics
-    intersect = actual & expected # elements present in both sets
+    intersect = actual & expected  # elements present in both sets
 
     # precision-> Of the agents fired, what fraction were correct?
-    precision = len(intersect) / len(actual) if actual else 0.0 
+    precision = len(intersect) / len(actual) if actual else 0.0
     # recall -> Of the agents that should have fired, what fraction did?
     recall = len(intersect) / len(expected)
     # harmonic mean of precision & recall
@@ -57,6 +58,7 @@ def routing_accuracy(run: Any, example: Any) -> dict:
         "comment": comment,
     }
 
+
 # 2. Routing Precision
 def routing_precision(run: Any, example: Any) -> dict:
     """Of agents that fired, how many were expected? (catches over-routing)"""
@@ -66,6 +68,7 @@ def routing_precision(run: Any, example: Any) -> dict:
         return {"key": "routing_precision", "score": 0.0}
     precision = len(actual & expected) / len(actual)
     return {"key": "routing_precision", "score": precision}
+
 
 # 3. Routing Recall
 def routing_recall(run: Any, example: Any) -> dict:
@@ -77,19 +80,24 @@ def routing_recall(run: Any, example: Any) -> dict:
     recall = len(actual & expected) / len(expected)
     return {"key": "routing_recall", "score": recall}
 
+
 # Retrieval quality evaluators:
 # 1. Source-based MRR
 # 2. Recall@5
 # 3. hit@1
 
+
 def _chunk_source(chunk: dict) -> str:
     """Extract the source URL from a retrieved chunk."""
     return chunk.get("source_url") or chunk.get("source") or ""
 
+
 def mrr_at_5(run: Any, example: Any) -> dict:
     """Mean Reciprocal Rank @ 5."""
     chunks = run.outputs.get("chunks", [])
-    gold = set(example.outputs.get("relevant_sources", [])) # gold = retrievel dataset defined datasets.py
+    gold = set(
+        example.outputs.get("relevant_sources", [])
+    )  # gold = retrievel dataset defined datasets.py
 
     if not gold:
         return {
@@ -114,8 +122,7 @@ def mrr_at_5(run: Any, example: Any) -> dict:
     return {
         "key": "mrr_at_5",
         "score": 0.0,
-        "comment": f"no gold in top-5 | gold={sorted(gold)[:1]}... "
-                   f"got={retrieved_sources[:3]}...",
+        "comment": f"no gold in top-5 | gold={sorted(gold)[:1]}... got={retrieved_sources[:3]}...",
     }
 
 
@@ -145,8 +152,7 @@ def hit_at_1(run: Any, example: Any) -> dict:
 
     top_source = _chunk_source(chunks[0])
     score = 1.0 if top_source in gold else 0.0
-    return {"key": "hit_at_1", "score": score,
-            "comment": f"top_source={top_source}"}
+    return {"key": "hit_at_1", "score": score, "comment": f"top_source={top_source}"}
 
 
 # Generation evaluators (LLM-as-judge + keyword check)
@@ -156,20 +162,24 @@ def hit_at_1(run: Any, example: Any) -> dict:
 _judge_llm = judge_llm
 
 # Faithfulness — "is the answer grounded in the retrieved chunks?"
-FAITHFULNESS_PROMPT = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are an expert evaluator. Assess whether the AI's answer is faithful "
-     "to the provided retrieval context chunks.\n\n"
-     "Score 1.0 = fully faithful: every factual claim is supported by the context\n"
-     "Score 0.5 = partially faithful: some claims unsupported but core is grounded\n"
-     "Score 0.0 = not faithful: substantial claims contradict or are absent from context\n\n"
-     "Focus on factual claims (numbers, definitions, mechanisms). Ignore stylistic "
-     "differences and well-known general financial concepts. If context is empty "
-     "or marginal, score 0.5 if the answer admits insufficient info, else 0.0.\n\n"
-     'Respond with ONLY this JSON: {{"score": <float>, "reason": "<one sentence>"}}'),
-    ("human",
-     "Context:\n{context}\n\nQuestion: {question}\n\nAnswer to evaluate:\n{answer}"),
-])
+FAITHFULNESS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are an expert evaluator. Assess whether the AI's answer is faithful "
+            "to the provided retrieval context chunks.\n\n"
+            "Score 1.0 = fully faithful: every factual claim is supported by the context\n"
+            "Score 0.5 = partially faithful: some claims unsupported but core is grounded\n"
+            "Score 0.0 = not faithful: substantial claims contradict or are absent from context\n\n"
+            "Focus on factual claims (numbers, definitions, mechanisms). Ignore stylistic "
+            "differences and well-known general financial concepts. If context is empty "
+            "or marginal, score 0.5 if the answer admits insufficient info, else 0.0.\n\n"
+            'Respond with ONLY this JSON: {{"score": <float>, "reason": "<one sentence>"}}',
+        ),
+        ("human", "Context:\n{context}\n\nQuestion: {question}\n\nAnswer to evaluate:\n{answer}"),
+    ]
+)
+
 
 def faithfulness_evaluator(run: Any, example: Any) -> dict:
     """LLM-as-judge: are the answer's claims supported by retrieved chunks?"""
@@ -180,10 +190,10 @@ def faithfulness_evaluator(run: Any, example: Any) -> dict:
     if not answer:
         return {"key": "faithfulness", "score": 0.0, "comment": "no answer generated"}
 
-    context = "\n\n".join(
-        f"[{c.get('source_url', 'unknown')}] {c.get('text', '')[:500]}"
-        for c in chunks
-    ) or "(no context retrieved)"
+    context = (
+        "\n\n".join(f"[{c.get('source_url', 'unknown')}] {c.get('text', '')[:500]}" for c in chunks)
+        or "(no context retrieved)"
+    )
 
     messages = FAITHFULNESS_PROMPT.format_messages(
         context=context[:4000],  # cap to control judge cost
@@ -205,21 +215,27 @@ def faithfulness_evaluator(run: Any, example: Any) -> dict:
 
 
 # Correctness — "does the answer match the reference answer?"
-CORRECTNESS_PROMPT = ChatPromptTemplate.from_messages([
-    ("system",
-     "You are an expert evaluator. Compare the AI's answer to the expected "
-     "reference answer for factual accuracy.\n\n"
-     "Score 1.0 = all key facts correct, no critical omissions\n"
-     "Score 0.5 = partially correct OR missing important facts\n"
-     "Score 0.0 = key facts wrong, contradicts reference, or fundamentally off-topic\n\n"
-     "Focus on factual accuracy, not exact wording or style. The AI's answer "
-     "may include extra correct info; that's fine. Only penalize wrong facts "
-     "or missing critical ones.\n\n"
-     'Respond with ONLY this JSON: {{"score": <float>, "reason": "<one sentence>"}}'),
-    ("human",
-     "Question: {question}\n\nExpected answer:\n{expected}\n\n"
-     "AI's actual answer:\n{actual}"),
-])
+CORRECTNESS_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        (
+            "system",
+            "You are an expert evaluator. Compare the AI's answer to the expected "
+            "reference answer for factual accuracy.\n\n"
+            "Score 1.0 = all key facts correct, no critical omissions\n"
+            "Score 0.5 = partially correct OR missing important facts\n"
+            "Score 0.0 = key facts wrong, contradicts reference, or fundamentally off-topic\n\n"
+            "Focus on factual accuracy, not exact wording or style. The AI's answer "
+            "may include extra correct info; that's fine. Only penalize wrong facts "
+            "or missing critical ones.\n\n"
+            'Respond with ONLY this JSON: {{"score": <float>, "reason": "<one sentence>"}}',
+        ),
+        (
+            "human",
+            "Question: {question}\n\nExpected answer:\n{expected}\n\nAI's actual answer:\n{actual}",
+        ),
+    ]
+)
+
 
 def correctness_evaluator(run: Any, example: Any) -> dict:
     """LLM-as-judge: does the answer factually match the reference?"""
@@ -264,6 +280,7 @@ def keyword_correctness(run: Any, example: Any) -> dict:
         "comment": f"hit {hits}/{len(expected_keywords)} keywords: {expected_keywords}",
     }
 
+
 # Guardrails evaluators
 def guard_action_correct(run, example):
     """Did the guard take the expected action (pass/block/redact_input)?"""
@@ -279,8 +296,11 @@ def guard_action_correct(run, example):
         actual = "pass" if (is_safe and not input_redactions) else "unexpected"
 
     score = 1.0 if actual == expected else 0.0
-    return {"key": "guard_action_correct", "score": score,
-            "comment": f"expected={expected} actual={actual}"}
+    return {
+        "key": "guard_action_correct",
+        "score": score,
+        "comment": f"expected={expected} actual={actual}",
+    }
 
 
 def input_pii_entities_correct(run, example):
@@ -291,13 +311,19 @@ def input_pii_entities_correct(run, example):
 
     actual_entities = {r.get("type") for r in run.outputs.get("input_redactions", [])}
     if not actual_entities:
-        return {"key": "input_pii_entities_correct", "score": 0.0,
-                "comment": "no entities redacted"}
+        return {
+            "key": "input_pii_entities_correct",
+            "score": 0.0,
+            "comment": "no entities redacted",
+        }
 
     intersect = expected_entities & actual_entities
     score = len(intersect) / len(expected_entities)
-    return {"key": "input_pii_entities_correct", "score": score,
-            "comment": f"expected={sorted(expected_entities)} got={sorted(actual_entities)}"}
+    return {
+        "key": "input_pii_entities_correct",
+        "score": score,
+        "comment": f"expected={sorted(expected_entities)} got={sorted(actual_entities)}",
+    }
 
 
 def block_category_correct(run: Any, example: Any) -> dict:
@@ -305,7 +331,7 @@ def block_category_correct(run: Any, example: Any) -> dict:
     expected_cat = example.outputs.get("expected_block_category")
     if not expected_cat or expected_cat == "ok":
         return {"key": "block_category_correct", "score": None}  # opt-out
-    
+
     actual_cat = run.outputs.get("input_block_category", "ok")
     score = 1.0 if actual_cat == expected_cat else 0.0
     return {
@@ -317,17 +343,18 @@ def block_category_correct(run: Any, example: Any) -> dict:
 
 def pii_leak_check(run: Any, example: Any) -> dict:
     """Universal check: does the final_answer contain any unredacted PII?
-    
+
     Catches the failure where redaction was supposed to fire but didn't.
     """
     from src.guardrails.patterns import PII_PATTERNS
+
     answer = run.outputs.get("final_answer", "")
-    
+
     leaked = []
     for pii_type, pattern in PII_PATTERNS.items():
         if pattern.search(answer):
             leaked.append(pii_type)
-    
+
     score = 0.0 if leaked else 1.0
     return {
         "key": "no_pii_leak",
