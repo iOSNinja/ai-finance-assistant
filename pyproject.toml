@@ -43,3 +43,52 @@ dev = [
     "pytest>=9.0.3",
     "ruff>=0.15.14",
 ]
+
+# Ruff config - configure global options
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [".venv", "chroma_db", "logs"] #ignore these
+
+[tool.ruff.lint]
+# Enable selected rule sets (see https://docs.astral.sh/ruff/rules/)
+# Setting up code analysis and error-checking rules.
+select = [
+    "E",    # pycodestyle errors
+    "F",    # pyflakes (real bugs)
+    "I",    # isort (import sorting)
+    "B",    # flake8-bugbear (likely bugs)
+    "UP",   # pyupgrade (modernization)
+    "C4",   # flake8-comprehensions
+]
+ignore = [
+    "E501",   # line too long — we use the formatter for length
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Overriding Linter Rules Per-File
+"scripts/**" = ["E402", "F401"]
+"tests/eval/**" = ["E402"]
+
+[tool.ruff.format]
+# configuration block for code rewriting stylization.
+quote-style = "double"
+indent-style = "space"
+
+# Pytest config - Pytest Test Discovery
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]                # only auto-discover unit tests
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+# command line flags that will automatically run every single time you type pytest in the terminal
+addopts = [
+    "-v",                                  # verbose
+    "--strict-markers",                    # typo in @pytest.mark.X fails loudly
+    "--tb=short",                          # short tracebacks
+]
+markers = [
+    "slow: tests that take more than 1 second",
+    "integration: tests hitting real external services",
+    "eval: end-to-end eval suite — only run on main/scheduled",
+]
