@@ -36,7 +36,7 @@ def cost_tracker_for_request(
 ) -> Iterator[CostTracker]:
     """Bind a CostTracker for the duration of a 'with' block.
 
-    If `tracker` is provided, bind it (useful for accumulating across queries
+    If 'tracker' is provided, bind it (useful for accumulating across queries
     in a UI session). Otherwise create a fresh CostTracker with the budget
     parameters.
 

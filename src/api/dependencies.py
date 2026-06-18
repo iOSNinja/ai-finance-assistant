@@ -31,7 +31,7 @@ def get_semantic_cache() -> SemanticCache:
     """
     return SemanticCache(
         embeddings=embeddings,
-        threshold=0.60,        # calibrated against text-embedding-3-small
+        threshold=0.75,        # calibrated against text-embedding-3-small
         ttl_seconds=3600.0,
         max_size=200,
     )
