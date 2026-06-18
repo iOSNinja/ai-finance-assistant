@@ -56,10 +56,25 @@ def _get_engines():
     global _analyzer, _anonymizer
     if _analyzer is None:
         from presidio_analyzer import AnalyzerEngine
+        from presidio_analyzer.nlp_engine import NlpEngineProvider
         from presidio_anonymizer import AnonymizerEngine
 
         logger.info("Initializing Presidio engines (one-time cost)")
-        _analyzer = AnalyzerEngine()
+
+        # Configure spaCy explicitly with en_core_web_sm (12MB) instead of
+        # Presidio's en_core_web_lg default (~400MB). The small model is
+        # sufficient for our PII types (SSN, email, phone, names) since
+        # most detection is regex-based; the NLP model only helps PERSON
+        # entity recognition, which the small model handles fine.
+        nlp_engine = NlpEngineProvider(nlp_configuration={
+            "nlp_engine_name": "spacy",
+            "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+        }).create_engine()
+
+        _analyzer = AnalyzerEngine(
+            nlp_engine=nlp_engine,
+            supported_languages=["en"],
+        )
         _anonymizer = AnonymizerEngine()
     return _analyzer, _anonymizer
 
