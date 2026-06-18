@@ -40,5 +40,9 @@ htmlcov/
 # Streamlit
 .streamlit/secrets.toml
 
+# Deployment & AWS config (contains sensitive info)
+/deployment/
+aws-setup.md
+
 # Sanity check scripts
 # scripts/sanity_checks/
