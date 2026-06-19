@@ -154,8 +154,13 @@ A walk-through of what actually happens behind the scenes when you ask Finnie a 
 | Market data | **yfinance** | Free, no API key, ticker-specific news endpoint |
 | News search | **Tavily** | Domain-allowlistable search across reputable financial sources |
 | UI | **Streamlit** | Multi-tab interface, native chart support, fast iteration |
+| Backend API | **FastAPI + uvicorn** | ASGI-native concurrency for LLM-bound IO; auto-generated OpenAPI docs |
+| HTTP client | **httpx** | Async HTTP from Streamlit → FastAPI backend |
 | Observability + Eval | **LangSmith** | Auto-traced graph + per-eval-suite experiment tracking |
 | PII detection | **Microsoft Presidio + spaCy** | NER-based names/addresses/DOB redaction the regex can't catch |
+| Containerization | **Docker (multi-stage)** | Non-root runtime; layer-cache-optimized; ~360 MB final image |
+| Cloud platform | **AWS** (ECR, ECS Fargate, Secrets Manager, CloudWatch, ALB) | Production deploy with IAM least-privilege + cost discipline |
+| CI/CD | **GitHub Actions + Ruff + pytest** | Lint + unit tests on every push; concurrency cancellation; green badge gate |
 | Package manager | **uv** | 10–100× faster than pip; modern lockfile-based reproducibility |
 | Python | **3.12** | Modern typing (`X \| None`), `NotRequired`, latest stdlib improvements |
 | Validation | **Pydantic v2** | Structured LLM outputs, typed tool inputs |
@@ -210,15 +215,34 @@ This scrapes ~70 articles from SEC investor.gov, IRS.gov, Wikipedia, Bogleheads,
 
 ### Run
 
+Three ways to run Finnie locally — each useful for a different scenario:
+
 ```bash
-# CLI mode
+# 1. CLI mode (fastest for one-off queries)
 uv run python -m src.main
 
-# Streamlit UI (recommended)
+# 2. Streamlit UI standalone (legacy mode — UI invokes the graph in-process)
+uv run streamlit run src/web_app/app.py
+
+# 3. Production architecture (recommended) — Streamlit calls a separate FastAPI backend
+# Terminal A:
+uv run uvicorn src.api.main:app --reload --port 8000
+# Terminal B:
 uv run streamlit run src/web_app/app.py
 ```
 
-Streamlit opens `http://localhost:8501` automatically.
+In mode 3, the backend runs as its own process. Visit `http://localhost:8000/docs` for the interactive Swagger UI. This mirrors the production deployment shape (Streamlit + FastAPI on AWS ECS) so local bugs surface the same way they would in the cloud.
+
+#### Run in Docker (production-grade local)
+
+```bash
+docker build -t finnie:dev .
+docker run --rm -p 8000:8000 --env-file .env finnie:dev
+# In another terminal:
+curl http://localhost:8000/health
+```
+
+This is the exact image deployed to AWS ECS Fargate — see [docs/deployment/AWS_DEPLOYMENT_GUIDE.md](docs/deployment/AWS_DEPLOYMENT_GUIDE.md) (gitignored) for the cloud-side runbook.
 
 ---
 
@@ -467,6 +491,137 @@ Default budgets: $5.00 daily, $0.10 per-call alert. Both configurable per-sessio
 - **Edge-triggered alerts** — budget warning fires ONCE when cumulative spend first crosses 80% of the daily budget; reset on "Start new conversation." Avoids the classic alert-fatigue pattern where every subsequent call re-emits the same warning.
 - **Zero touch to agent code** — all instrumentation happens via callbacks, ContextVars, and decorators. None of the six specialist agents know cost tracking exists.
 
+### 5. CI/CD Pipeline ✅
+
+Every push and PR runs a two-job GitHub Actions workflow before merge can complete:
+
+| Job | What it does | Tool |
+|---|---|---|
+| `lint` | Style + import sort + bug-class checks across the full repo | **Ruff** (single Rust binary replacing flake8 + Black + isort, 10–100× faster) |
+| `unit-tests` | Runs `tests/unit/` covering cost tracker accumulation, edge-triggered budget alerts, semantic cache thresholding, callback tag extraction | **pytest** with fixtures + parametrize |
+
+**Engineering notes:**
+
+- **Concurrency cancellation:** older runs of the same branch get killed when new commits arrive (`concurrency.cancel-in-progress: true`). Saves CI minutes; faster feedback on latest code.
+- **uv-cached dependency install:** `setup-python` + uv cache keys hash `uv.lock` — repeat installs in CI are seconds, not minutes.
+- **Scoped per-file-ignores:** E402 (late imports) is a real error in app code but legitimate in scripts that mutate `sys.path` first. `[tool.ruff.lint.per-file-ignores]` keeps global rules strict while allowing intentional exceptions in `scripts/**` and similar.
+- **Green badge as merge gate:** branch protection on `main` requires both jobs green before merge button is enabled.
+
+**Files:** [.github/workflows/ci.yml](.github/workflows/ci.yml), [pyproject.toml](pyproject.toml) (Ruff + pytest config)
+
+### 6. API Architecture — FastAPI Backend ✅
+
+Streamlit imported the LangGraph assistant directly — UI and business logic in one process. Carved out a FastAPI backend so the same code can be containerized, deployed independently to AWS, and consumed by other clients (iOS app, CLI, internal services).
+
+**Architecture:**
+
+```
+Before:  Browser → Streamlit + LangGraph    (one process; tightly coupled)
+
+After:   Browser → Streamlit → HTTP → FastAPI → LangGraph
+                                      (separately deployable; horizontally scalable)
+```
+
+| Concern | Streamlit-only | FastAPI carve-out |
+|---|---|---|
+| Containerizable | No (Streamlit is per-session) | Yes — stateless backend |
+| Multiple clients | Web-only | iOS / CLI / curl can hit the same API |
+| Horizontal scaling | No (1 session = 1 process) | Yes — N FastAPI containers behind a load balancer |
+| API contract | None | Auto-generated OpenAPI spec at `/docs` |
+| Dev-prod parity | UI invokes logic in-process | Same client-server hop in dev as in cloud |
+
+**Key endpoints:**
+
+- `POST /chat` — accepts a query, returns `{response, cost, per_agent}` with cost telemetry
+- `GET /health` — lightweight liveness check; load balancers and ECS health checks poll this
+- `GET /docs` — interactive Swagger UI auto-generated from Pydantic models
+
+**Engineering notes:**
+
+- **`@lru_cache(maxsize=1)` factories** express singletons (graph compile, semantic cache) cleanly without globals — FastAPI's `Depends()` injects the cached instance into every request handler.
+- **`lifespan` context manager** runs before/after the server's request-handling loop. Used to pre-warm the LangGraph singleton so the first request doesn't pay the 2-3 second cold-boot cost.
+- **Pydantic `response_model`** enforces output contracts at runtime + filters unexpected fields (security) + auto-documents the API.
+- **Graceful cache degradation** — `try/except` around `cache.get()` and `cache.put()` means the user always gets an answer even if the cache layer misbehaves.
+
+**Files:** [src/api/main.py](src/api/main.py), [src/api/routes/chat.py](src/api/routes/chat.py), [src/api/routes/health.py](src/api/routes/health.py), [src/api/dependencies.py](src/api/dependencies.py), [src/api/models/chat.py](src/api/models/chat.py)
+
+### 7. Containerization with Docker ✅
+
+Production-grade Dockerfile with three discipline points:
+
+| Discipline | What it does | Why |
+|---|---|---|
+| **Multi-stage build** | Stage 1 (builder) installs deps + spaCy model + project. Stage 2 (runtime) is `python:3.12-slim` with just `/app` copied over. | Final image ~360 MB. No compilers, no uv binary, no build cache in runtime. |
+| **Non-root user** (`finnie`) | Container runs as a non-privileged user via `RUN groupadd ... && useradd ...` + `USER finnie`. | Defense in depth: an RCE bug doesn't get root inside the container. AWS audits + SOC 2 require this. |
+| **Layer ordering for cache hits** | Deps installed BEFORE source code copy. Editing `src/` doesn't invalidate the heavy `uv sync` layer. | First build ~45s. Iteration rebuild: ~5s. 9× faster dev loop. |
+
+**Runtime hardening details (production gotchas worth knowing):**
+
+- **`RUN chown finnie:finnie /app`** explicitly after the `COPY --chown` — because `--chown` only changes ownership of *contents*, not the directory itself. Without this, stateful writes (Chroma vector store at `/app/chroma_db/`) fail with `Permission denied`.
+- **`COPY chroma_db ./chroma_db`** — the vector store (gitignored) is baked into the image so the container is self-contained. Will graduate to AWS EFS in a later phase.
+- **`RUN .venv/bin/python -m spacy download en_core_web_sm`** in the builder stage — Presidio needs a spaCy model at runtime, and the slim runtime container has no pip to auto-download. Pre-bake.
+- **`HEALTHCHECK`** runs a Python urllib request to `/health` every 30 seconds with a 60-second `startPeriod` grace — gives LangGraph + Chroma + spaCy time to load on cold start. ECS, the ALB target group, and Docker itself all watch this signal.
+- **`PYTHONUNBUFFERED=1`** so stdout flushes line-by-line into CloudWatch — without this, log lines stay in buffer until 4 KB accumulates, making real-time debugging painful.
+
+**Run locally:**
+
+```bash
+docker build -t finnie:dev .
+docker run --rm -p 8000:8000 --env-file .env finnie:dev
+curl http://localhost:8000/health
+```
+
+**Files:** [Dockerfile](Dockerfile), [.dockerignore](.dockerignore)
+
+### 8. AWS Cloud Deployment 🚧 In Progress
+
+Live deployment on AWS using a production-shaped stack — ECR for images, ECS Fargate for compute, Secrets Manager for credentials, CloudWatch for logs, IAM least-privilege throughout.
+
+**Architecture:**
+
+```
+                INTERNET
+                   │
+                   ▼
+              Application Load Balancer (HTTPS) ─── (Phase 4c)
+                   │
+                   ▼
+              ECS Fargate Task (Finnie container, ARM64)
+              ↑                                ↓
+           ECR (image registry)        CloudWatch Logs (/ecs/finnie, 7d retention)
+                                       Secrets Manager (5 API keys in 1 JSON secret)
+```
+
+**Done so far:**
+
+| Component | What it does | Cost |
+|---|---|---|
+| **ECR repository** | Private container registry with CVE scan on push | $0 in free tier (image is ~400 MB) |
+| **CloudWatch Log Group** | `/ecs/finnie` with 7-day retention | $0 in free tier (5 GB/mo always free) |
+| **Secrets Manager** | One JSON secret with OpenAI, Tavily, Alpha Vantage, NewsAPI, LangSmith keys | $0.40/month |
+| **IAM Task Execution Role** | `ecsTaskExecutionRole` + custom `finnie-secrets-read` policy scoped to ONE secret ARN | $0 (IAM always free) |
+| **ECS Task Definition** | `finnie-api:2` — ARM64, 0.5 vCPU + 1 GB, healthcheck, log config, secrets injection | $0 until a task runs |
+
+**Engineering decisions documented:**
+
+- **One JSON secret, not five individual secrets.** Saves $1.60/month ($0.40 × 5 → $0.40 × 1). All keys share the same owner and rotation cadence.
+- **`secrets` block vs `environment` block in task def.** Plaintext config (model names, region) goes in `environment`. Sensitive values go in `secrets` with `valueFrom: <secret-arn>:<json-key>::` — values never appear in task def JSON, console, or CloudTrail logs.
+- **Least privilege scoping on the secrets policy.** `Resource` is the literal one secret ARN, not `*` or even `finnie/*`. Leaked credentials = limited blast radius.
+- **ARM64 for ~20% lower Fargate hourly cost.** Built on Apple Silicon Mac; `runtimePlatform.cpuArchitecture: ARM64` in task def avoids `exec format error`.
+- **`startPeriod: 60` on the healthcheck.** Without this, ECS would kill the container while LangGraph + Chroma + spaCy are still loading. Common production bug.
+
+**Cost discipline:**
+
+`finnie-sleep` (set service `desired-count: 0`) at end of every work session stops Fargate billing. `finnie-wake` (set back to 1) on next session — task boots in ~60 seconds. ~$0.045/hour while running, $0/hour while sleeping. Budget alarm at $15/month is the safety net.
+
+**Coming next:**
+
+- ECS cluster + service + ALB + security groups (Phase 4c — live URL)
+- Custom domain via Route 53 + ACM SSL cert
+- CloudWatch alarms on 5xx + cost spikes
+- RDS Postgres for user state + Google OAuth
+
+Full step-by-step deployment journal lives in `docs/deployment/AWS_DEPLOYMENT_GUIDE.md` (gitignored — private interview reference).
 
 ---
 
@@ -570,8 +725,13 @@ In a new conversation, the 🔌 menu will show `finnie · 9 tools, 2 prompts`. T
 | ✅ | Input + output guardrails — regex / Moderation / LLM classifier / Presidio |
 | ✅ | MCP server — expose Finnie's tools via Model Context Protocol |
 | ✅ | Cost optimization — token tracking, semantic cache, per-query spend reporting |
-| 🚧 | Cloud deployment — publicly accessible demo |
-| 🚧 | Demo video |
+| ✅ | CI/CD — GitHub Actions with Ruff lint + pytest, branch protection |
+| ✅ | FastAPI backend carve-out — decoupled from Streamlit; OpenAPI auto-docs |
+| ✅ | Docker containerization — multi-stage build, non-root, ~360 MB image |
+| 🚧 | AWS cloud deployment — ECR + ECS Fargate (image pushed, task def registered; cluster + service + ALB next) |
+| 🚧 | RDS Postgres + Google OAuth for per-user state |
+| 🚧 | CloudWatch alarms + custom domain with HTTPS |
+| 🚧 | Demo video — public link with full agent walkthrough |
 
 ## Future Enhancements
 
