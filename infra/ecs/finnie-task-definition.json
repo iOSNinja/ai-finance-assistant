@@ -23,7 +23,10 @@
       ],
       "environment": [
         {"name": "PYTHONUNBUFFERED", "value": "1"},
-        {"name": "AWS_REGION", "value": "us-east-2"}
+        {"name": "AWS_REGION", "value": "us-east-2"},
+        {"name": "LANGCHAIN_TRACING_V2", "value": "true"},
+        {"name": "LANGCHAIN_PROJECT", "value": "finnie-prod"},
+        {"name": "LANGCHAIN_ENDPOINT", "value": "https://api.smith.langchain.com"}
       ],
       "secrets": [
         {
