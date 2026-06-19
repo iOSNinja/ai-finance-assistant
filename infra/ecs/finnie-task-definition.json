@@ -1,0 +1,70 @@
+{
+  "family": "finnie-api",
+  "networkMode": "awsvpc",
+  "requiresCompatibilities": ["FARGATE"],
+  "cpu": "512",
+  "memory": "1024",
+  "runtimePlatform": {
+    "operatingSystemFamily": "LINUX",
+    "cpuArchitecture": "ARM64"
+  },
+  "executionRoleArn": "arn:aws:iam::082706806911:role/ecsTaskExecutionRole",
+  "containerDefinitions": [
+    {
+      "name": "finnie",
+      "image": "082706806911.dkr.ecr.us-east-2.amazonaws.com/finnie:v1",
+      "essential": true,
+      "portMappings": [
+        {
+          "containerPort": 8000,
+          "protocol": "tcp",
+          "appProtocol": "http"
+        }
+      ],
+      "environment": [
+        {"name": "PYTHONUNBUFFERED", "value": "1"},
+        {"name": "AWS_REGION", "value": "us-east-2"}
+      ],
+      "secrets": [
+        {
+          "name": "OPENAI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-2:082706806911:secret:finnie/api-keys-WQlueb:OPENAI_API_KEY::"
+        },
+        {
+          "name": "TAVILY_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-2:082706806911:secret:finnie/api-keys-WQlueb:TAVILY_API_KEY::"
+        },
+        {
+          "name": "ALPHA_VANTAGE_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-2:082706806911:secret:finnie/api-keys-WQlueb:ALPHA_VANTAGE_API_KEY::"
+        },
+        {
+          "name": "NEWSAPI_API_KEY",
+          "valueFrom": "arn:aws:secretsmanager:us-east-2:082706806911:secret:finnie/api-keys-WQlueb:NEWSAPI_API_KEY::"
+        },
+        {
+            "name": "LANGCHAIN_API_KEY",
+            "valueFrom": "arn:aws:secretsmanager:us-east-2:082706806911:secret:finnie/api-keys-WQlueb:LANGCHAIN_API_KEY::"
+        }
+      ],
+      "logConfiguration": {
+        "logDriver": "awslogs",
+        "options": {
+          "awslogs-group": "/ecs/finnie",
+          "awslogs-region": "us-east-2",
+          "awslogs-stream-prefix": "finnie"
+        }
+      },
+      "healthCheck": {
+        "command": [
+          "CMD-SHELL",
+          "python -c \"import urllib.request, sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8000/health').status == 200 else 1)\""
+        ],
+        "interval": 30,
+        "timeout": 5,
+        "retries": 3,
+        "startPeriod": 60
+      }
+    }
+  ]
+}
