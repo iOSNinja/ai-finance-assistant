@@ -1,0 +1,40 @@
+{
+  "cluster": "finnie",
+  "serviceName": "finnie-api",
+  "taskDefinition": "finnie-api:2",
+  "desiredCount": 1,
+  "launchType": "FARGATE",
+  "platformVersion": "LATEST",
+  "networkConfiguration": {
+    "awsvpcConfiguration": {
+      "subnets": [
+        "subnet-0e35b8318559efc13",
+        "subnet-0594b52aa6c242147",
+        "subnet-0ea9a7d18a210003d"
+      ],
+      "securityGroups": [
+        "sg-009cf1122f541cbf5"
+      ],
+      "assignPublicIp": "ENABLED"
+    }
+  },
+  "loadBalancers": [
+    {
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-2:082706806911:targetgroup/finnie-tg/86f4c7d3539cde40",
+      "containerName": "finnie",
+      "containerPort": 8000
+    }
+  ],
+  "deploymentConfiguration": {
+    "maximumPercent": 200,
+    "minimumHealthyPercent": 100,
+    "deploymentCircuitBreaker": {
+      "enable": true,
+      "rollback": true
+    }
+  },
+  "healthCheckGracePeriodSeconds": 120,
+  "schedulingStrategy": "REPLICA",
+  "enableECSManagedTags": true,
+  "propagateTags": "SERVICE"
+}

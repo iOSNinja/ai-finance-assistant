@@ -573,9 +573,9 @@ curl http://localhost:8000/health
 
 **Files:** [Dockerfile](Dockerfile), [.dockerignore](.dockerignore)
 
-### 8. AWS Cloud Deployment 🚧 In Progress
+### 8. AWS Cloud Deployment ✅
 
-Live deployment on AWS using a production-shaped stack — ECR for images, ECS Fargate for compute, Secrets Manager for credentials, CloudWatch for logs, IAM least-privilege throughout.
+Live deployment on AWS using a production-shaped stack — ECR for images, ECS Fargate for compute, Secrets Manager for credentials, CloudWatch for logs, ALB for routing, IAM least-privilege throughout.
 
 **Architecture:**
 
@@ -592,7 +592,7 @@ Live deployment on AWS using a production-shaped stack — ECR for images, ECS F
                                        Secrets Manager (5 API keys in 1 JSON secret)
 ```
 
-**Done so far:**
+**Live infrastructure:**
 
 | Component | What it does | Cost |
 |---|---|---|
@@ -601,6 +601,11 @@ Live deployment on AWS using a production-shaped stack — ECR for images, ECS F
 | **Secrets Manager** | One JSON secret with OpenAI, Tavily, Alpha Vantage, NewsAPI, LangSmith keys | $0.40/month |
 | **IAM Task Execution Role** | `ecsTaskExecutionRole` + custom `finnie-secrets-read` policy scoped to ONE secret ARN | $0 (IAM always free) |
 | **ECS Task Definition** | `finnie-api:2` — ARM64, 0.5 vCPU + 1 GB, healthcheck, log config, secrets injection | $0 until a task runs |
+| **Security Groups** | Two-layer firewall: ALB SG (allow :80 from internet) → Task SG (allow :8000 from ALB SG only) | $0 |
+| **ECS Cluster** | `finnie` cluster supporting FARGATE + FARGATE_SPOT capacity providers | $0 |
+| **ECS Service** | `finnie-api` service maintains 1 task; deployment circuit breaker with auto-rollback; min healthy 100% / max 200% for zero-downtime updates | Pay-per-run |
+| **Target Group** | `finnie-tg` (type=ip for Fargate); /health probe every 30s with 2-success healthy / 3-failure unhealthy thresholds | $0 |
+| **Application Load Balancer** | Internet-facing ALB spanning 3 AZs; HTTP:80 listener → target group | $0.025/hr while running |
 
 **Engineering decisions documented:**
 
@@ -616,12 +621,11 @@ Live deployment on AWS using a production-shaped stack — ECR for images, ECS F
 
 **Coming next:**
 
-- ECS cluster + service + ALB + security groups (Phase 4c — live URL)
-- Custom domain via Route 53 + ACM SSL cert
-- CloudWatch alarms on 5xx + cost spikes
-- RDS Postgres for user state + Google OAuth
+- RDS Postgres for user state + Google OAuth (Phase 5)
+- CloudWatch alarms on 5xx + cost spikes (Phase 6)
+- Custom domain via Route 53 + ACM SSL cert (Phase 7)
 
-Full step-by-step deployment journal lives in `docs/deployment/AWS_DEPLOYMENT_GUIDE.md` (gitignored — private interview reference).
+Full step-by-step deployment journal lives in `docs/deployment/AWS_DEPLOYMENT_GUIDE.md`.
 
 ---
 
@@ -728,15 +732,18 @@ In a new conversation, the 🔌 menu will show `finnie · 9 tools, 2 prompts`. T
 | ✅ | CI/CD — GitHub Actions with Ruff lint + pytest, branch protection |
 | ✅ | FastAPI backend carve-out — decoupled from Streamlit; OpenAPI auto-docs |
 | ✅ | Docker containerization — multi-stage build, non-root, ~360 MB image |
-| 🚧 | AWS cloud deployment — ECR + ECS Fargate (image pushed, task def registered; cluster + service + ALB next) |
-| 🚧 | RDS Postgres + Google OAuth for per-user state |
-| 🚧 | CloudWatch alarms + custom domain with HTTPS |
+| ✅ | AWS cloud deployment — live on ECS Fargate behind ALB (us-east-2) |
+| 🚧 | Rate-limited demo UI on Streamlit Cloud (free tier, HTTPS, calls AWS backend) |
+| 🚧 | Cost circuit breaker + CloudWatch billing alarms for safe public-ish demo |
 | 🚧 | Demo video — public link with full agent walkthrough |
 
 ## Future Enhancements
 
 | Status | Item |
 |---|---|
+| 📅 | RDS Postgres + Google OAuth — only when graduating to real users with saved state |
+| 📅 | Custom domain (finnie.\<yourdomain\>) + ACM SSL — only when listing on resume / business cards |
+| 📅 | Multi-region failover — only after you have real production traffic |
 | 📅 | Hybrid sparse + dense search (BM25 + dense) for better retrieval |
 | 📅 | Per-user portfolio persistence (currently per-session only) |
 | 📅 | iOS app — native client over a FastAPI backend |
