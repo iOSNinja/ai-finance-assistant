@@ -18,7 +18,6 @@ from src.observability.cost_tracker import CostTracker
 from src.observability.semantic_cache import SemanticCache
 from src.utils.logger import setup_logger
 
-
 router = APIRouter(tags=["chat"])
 logger = setup_logger(__name__)
 
@@ -93,4 +92,4 @@ async def chat(
         raise HTTPException(
             status_code=500,
             detail=f"Internal error: {type(e).__name__}",
-        )
+        ) from e

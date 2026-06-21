@@ -80,6 +80,10 @@ ignore = [
 "src/main.py"             = ["E402"]
 "src/mcp_server/run_stdio.py" = ["E402"]
 "src/core/config.py"      = ["E402"]
+# B008 (function call in default arg) flags Depends(...) in FastAPI routes.
+# But Depends() in argument defaults is THE canonical FastAPI pattern —
+# refactoring would be worse. Ignore B008 for route files only.
+"src/api/routes/**"       = ["B008"]
 
 [tool.ruff.format]
 # configuration block for code rewriting stylization.

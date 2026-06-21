@@ -7,12 +7,12 @@ Run with:
 The --reload flag auto-restarts the server when you change a Python file.
 Great for dev; not in production.
 """
-from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from src.api.routes import health, chat
+from src.api.routes import chat, health
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)

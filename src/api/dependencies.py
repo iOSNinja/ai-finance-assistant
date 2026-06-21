@@ -9,9 +9,9 @@ we cache them at module level so they're built once at startup.
 """
 from functools import lru_cache
 
+from src.core.config import embeddings
 from src.main import FinnieAIFinanceAssistant
 from src.observability.semantic_cache import SemanticCache
-from src.core.config import embeddings
 
 
 @lru_cache(maxsize=1)

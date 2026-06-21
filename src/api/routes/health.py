@@ -10,7 +10,6 @@ be fast and dependency-free so they don't cascade into outages.
 from fastapi import APIRouter
 from pydantic import BaseModel
 
-
 # APIRouter is FastAPI's way of grouping related endpoints in a separate
 # file. Createing one router per route file and will "wire them in" inside main.py.
 router = APIRouter(tags=["system"])

@@ -1,11 +1,10 @@
 """Chat tab: main multi-agent conversational interface."""
 
-import streamlit as st
 import httpx
+import streamlit as st
 
 from src.core.config import embeddings
 from src.main import FinnieAIFinanceAssistant
-from src.observability.context import cost_tracker_for_request
 from src.observability.cost_tracker import CostTracker
 from src.observability.semantic_cache import SemanticCache
 from src.utils.logger import setup_logger
@@ -102,7 +101,7 @@ def _handle_query(user_query: str) -> None:
                     "The backend returned an error. Please try again.\n\n"
                     f"_({e.response.status_code})_"
                 )
-            except httpx.RequestError as e:
+            except httpx.RequestError:
                 logger.exception("Couldn't reach FastAPI backend")
                 response = (
                     "Couldn't reach the backend. Is it running?\n\n"
