@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.agents.goal.tool import project_growth, required_monthly_savings
+from src.web_app.components.cloud_mode import render_cloud_only_notice
 
 
 def _render_required_monthly(result: dict) -> None:
@@ -54,6 +55,9 @@ def _render_projection(result: dict) -> None:
 
 
 def render() -> None:
+    if render_cloud_only_notice("Goals"):
+        return
+
     st.markdown(
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">'
         '<h2 style="margin:0;">🎯 Goals</h2>'

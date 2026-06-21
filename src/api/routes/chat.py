@@ -9,10 +9,11 @@ This is the main runtime endpoint. The flow:
   5. Return answer + per-request cost info
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
-from src.api.dependencies import get_assistant, get_semantic_cache
+from src.api.dependencies import get_assistant, get_daily_tracker, get_semantic_cache
 from src.api.models.chat import ChatRequest, ChatResponse, CostInfo
+from src.api.rate_limit import limiter
 from src.main import FinnieAIFinanceAssistant
 from src.observability.context import cost_tracker_for_request
 from src.observability.cost_tracker import CostTracker
@@ -23,14 +24,39 @@ router = APIRouter(tags=["chat"])
 logger = setup_logger(__name__)
 
 
+# Per-IP rate limit on /chat:
+#   - 5 requests per minute -> bursts allowed for legitimate users
+#   - 30 requests per day per IP -> bot defense
+# Even blocked requests still cost ALB LCU + Fargate CPU, so we cap aggressively.
 @router.post("/chat", response_model=ChatResponse)
+@limiter.limit("5/minute;30/day")
 async def chat(
-    request: ChatRequest,
+    request: Request,  # required by slowapi to read client IP
+    chat_request: ChatRequest,
     assistant: FinnieAIFinanceAssistant = Depends(get_assistant),
     cache: SemanticCache = Depends(get_semantic_cache),
 ) -> ChatResponse:
     """Submit a finance question. Returns the answer plus cost telemetry."""
-    user_query = request.query
+    # Demo budget circuit breaker
+    daily_tracker = get_daily_tracker()
+    if daily_tracker.total_cost_usd >= daily_tracker.daily_budget_usd:
+        logger.warning(
+            "Demo budget exhausted",
+            extra={
+                "total_spent_usd": round(daily_tracker.total_cost_usd, 4),
+                "budget_usd": daily_tracker.daily_budget_usd,
+            },
+        )
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Demo budget exhausted for today. "
+                "Please contact Ravi (linkedin.com/in/ravi-doddi-32061110) "
+                "for extended access."
+            ),
+        )
+
+    user_query = chat_request.query
 
     # Per-request tracker — accumulates CostRecord entries from any LLM calls
     # that fire during this graph invocation (via the CostTrackingCallback).
@@ -74,6 +100,23 @@ async def chat(
                 "Cache put failed — response delivered anyway",
                 extra={"error_type": type(cache_err).__name__, "error": str(cache_err)[:200]},
             )
+
+        # Also record this query's cost into the process-wide daily budget.
+        # This is what the circuit breaker checks at the start of next request.
+        from src.observability.cost_tracker import CostRecord
+
+        daily_tracker.record(
+            CostRecord(
+                trace_id=f"daily-{daily_tracker.total_calls}",
+                agent_name="aggregate",
+                model="gpt-4o-mini",
+                prompt_tokens=0,
+                completion_tokens=0,
+                cost_usd=query_cost,
+                latency_ms=0.0,
+                cache_hit=False,
+            )
+        )
 
         return ChatResponse(
             response=response_text,

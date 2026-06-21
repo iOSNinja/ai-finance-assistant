@@ -12,6 +12,7 @@ from src.agents.market.tool import (
     get_stock_quote,
 )
 from src.utils.logger import setup_logger
+from src.web_app.components.cloud_mode import render_cloud_only_notice
 
 logger = setup_logger("finnie.web_app.tabs.markets")
 
@@ -118,6 +119,9 @@ def _render_stock_lookup() -> None:
 
 
 def render() -> None:
+    if render_cloud_only_notice("Markets"):
+        return
+
     st.markdown(
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">'
         '<h2 style="margin:0;">📈 Markets</h2>'

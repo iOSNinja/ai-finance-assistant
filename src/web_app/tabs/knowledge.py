@@ -3,6 +3,10 @@
 import streamlit as st
 
 from src.rag.retriever import kb_search
+from src.web_app.components.cloud_mode import render_cloud_only_notice
+
+# Per-session rate limit — UX courtesy for trusted demo users.
+LIBRARY_QUERY_LIMIT = 2
 
 CATEGORIES = [
     "All",
@@ -37,6 +41,9 @@ def _render_results(results: list[dict], query: str) -> None:
 
 
 def render() -> None:
+    if render_cloud_only_notice("Library"):
+        return
+
     st.markdown(
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">'
         '<h2 style="margin:0;">📚 Knowledge Library</h2>'
@@ -85,6 +92,29 @@ def render() -> None:
         return
 
     st.markdown("---")
+
+    # Per-session rate limit
+    # Only counts unique queries — don't increment on every rerender
+    if st.session_state.get("_kb_last_query") != query:
+        used = st.session_state.get("library_queries_used", 0)
+        if used >= LIBRARY_QUERY_LIMIT:
+            st.warning(
+                f"⛔ You've used your **{LIBRARY_QUERY_LIMIT} free library searches** for this session. "
+                f"Want to try more? Please contact "
+                f"[Ravi on LinkedIn](https://www.linkedin.com/in/ravi-doddi-32061110/) "
+                f"for extended access.",
+                icon="🦊",
+            )
+            return
+        st.session_state.library_queries_used = used + 1
+        st.session_state._kb_last_query = query
+        remaining = LIBRARY_QUERY_LIMIT - st.session_state.library_queries_used
+        if remaining <= 1:
+            st.info(
+                f"ℹ️ {remaining} free library {'search' if remaining == 1 else 'searches'} remaining "
+                f"in this session.",
+                icon="📊",
+            )
 
     category_filter = category_choice if category_choice != "All" else None
     with st.spinner("Searching..."):

@@ -1,5 +1,7 @@
 """Chat tab: main multi-agent conversational interface."""
 
+import os
+
 import httpx
 import streamlit as st
 
@@ -11,8 +13,12 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-# FastAPI backend URL
-API_BASE_URL = "http://localhost:8000"
+# FastAPI backend URL — env var first (cloud), localhost fallback (local dev)
+API_BASE_URL = os.environ.get("FINNIE_API_URL", "http://localhost:8000")
+
+# Per-session rate limit — UX courtesy for trusted demo users.
+# (Real cost protection is server-side in the FastAPI cost circuit breaker.)
+CHAT_QUERY_LIMIT = 3
 
 USER_AVATAR = "🧑"
 FINNIE_AVATAR = "🦊"
@@ -71,6 +77,27 @@ def _render_history() -> None:
 
 
 def _handle_query(user_query: str) -> None:
+    # Per-session rate limit
+    used = st.session_state.get("chat_queries_used", 0)
+    if used >= CHAT_QUERY_LIMIT:
+        st.warning(
+            f"⛔ You've used your **{CHAT_QUERY_LIMIT} free chat queries** for this session. "
+            f"Want to try more? Please contact "
+            f"[Ravi on LinkedIn](https://www.linkedin.com/in/ravi-doddi-32061110/) "
+            f"for extended access.",
+            icon="🦊",
+        )
+        return
+
+    st.session_state.chat_queries_used = used + 1
+    remaining = CHAT_QUERY_LIMIT - st.session_state.chat_queries_used
+    if remaining <= 1:
+        st.info(
+            f"ℹ️ {remaining} free chat {'query' if remaining == 1 else 'queries'} remaining "
+            f"in this session.",
+            icon="📊",
+        )
+
     st.session_state.chat_messages.append({"role": "user", "content": user_query})
     with st.chat_message("user", avatar=USER_AVATAR):
         st.markdown(user_query)
