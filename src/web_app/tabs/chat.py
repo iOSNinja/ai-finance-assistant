@@ -1,5 +1,7 @@
 """Chat tab: main multi-agent conversational interface."""
 
+import os
+
 import httpx
 import streamlit as st
 
@@ -12,8 +14,6 @@ from src.utils.logger import setup_logger
 logger = setup_logger(__name__)
 
 # FastAPI backend URL — env var first (cloud), localhost fallback (local dev)
-import os
-
 API_BASE_URL = os.environ.get("FINNIE_API_URL", "http://localhost:8000")
 
 # Per-session rate limit — UX courtesy for trusted demo users.
