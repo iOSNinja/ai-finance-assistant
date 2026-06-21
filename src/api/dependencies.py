@@ -7,6 +7,7 @@ dependency as a function; FastAPI calls it for each request that needs it.
 For expensive-to-create singletons (the assistant, the semantic cache),
 we cache them at module level so they're built once at startup.
 """
+
 from functools import lru_cache
 
 from src.core.config import embeddings
@@ -27,11 +28,10 @@ def get_assistant() -> FinnieAIFinanceAssistant:
 
 @lru_cache(maxsize=1)
 def get_semantic_cache() -> SemanticCache:
-    """Shared SemanticCache for the API (one cache for all requests).
-    """
+    """Shared SemanticCache for the API (one cache for all requests)."""
     return SemanticCache(
         embeddings=embeddings,
-        threshold=0.75,        # calibrated against text-embedding-3-small
+        threshold=0.75,  # calibrated against text-embedding-3-small
         ttl_seconds=3600.0,
         max_size=200,
     )

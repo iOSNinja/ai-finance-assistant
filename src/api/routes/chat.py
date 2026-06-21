@@ -8,6 +8,7 @@ This is the main runtime endpoint. The flow:
   4. Cache the response with its compute cost
   5. Return answer + per-request cost info
 """
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from src.api.dependencies import get_assistant, get_semantic_cache
@@ -42,8 +43,7 @@ async def chat(
         except Exception as cache_err:
             logger.warning(
                 "Cache get failed — degrading to graph call",
-                extra={"error_type": type(cache_err).__name__,
-                       "error": str(cache_err)[:200]},
+                extra={"error_type": type(cache_err).__name__, "error": str(cache_err)[:200]},
             )
             cached_response = None
 
@@ -55,7 +55,7 @@ async def chat(
                     total_calls=0,
                     total_cost_usd=0.0,
                     cache_hit=True,
-                    saved_by_cache_usd=0.0,    # tracked by cache directly
+                    saved_by_cache_usd=0.0,  # tracked by cache directly
                 ),
                 per_agent={},
             )
@@ -72,8 +72,7 @@ async def chat(
         except Exception as cache_err:
             logger.warning(
                 "Cache put failed — response delivered anyway",
-                extra={"error_type": type(cache_err).__name__,
-                       "error": str(cache_err)[:200]},
+                extra={"error_type": type(cache_err).__name__, "error": str(cache_err)[:200]},
             )
 
         return ChatResponse(

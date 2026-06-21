@@ -7,6 +7,7 @@ auth check. It just confirms "the FastAPI process is running and can
 respond to HTTP." This is the standard pattern — health checks should
 be fast and dependency-free so they don't cascade into outages.
 """
+
 from fastapi import APIRouter
 from pydantic import BaseModel
 

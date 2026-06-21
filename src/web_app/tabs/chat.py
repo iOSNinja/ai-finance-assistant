@@ -93,7 +93,9 @@ def _handle_query(user_query: str) -> None:
                 cost_info = payload.get("cost", {})
 
                 # Update sidebar tracker with the per-request cost
-                _accumulate_cost_into_session_tracker(tracker, cost_info, payload.get("per_agent", {}))
+                _accumulate_cost_into_session_tracker(
+                    tracker, cost_info, payload.get("per_agent", {})
+                )
 
             except httpx.HTTPStatusError as e:
                 logger.exception("FastAPI returned an error")
@@ -127,16 +129,19 @@ def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: d
             continue
         # Push one CostRecord per agent into the session tracker.
         # Note: trace_id is synthetic here since we don't have one from API.
-        tracker.record(CostRecord(
-            trace_id=f"api-{agent_name[:6]}",
-            agent_name=agent_name,
-            model="gpt-4o-mini",
-            prompt_tokens=int(stats.get("total_prompt_tokens", 0)),
-            completion_tokens=int(stats.get("total_completion_tokens", 0)),
-            cost_usd=float(stats.get("total_cost_usd", 0)),
-            latency_ms=float(stats.get("avg_latency_ms", 0)),
-            cache_hit=cost_info.get("cache_hit", False),
-        ))
+        tracker.record(
+            CostRecord(
+                trace_id=f"api-{agent_name[:6]}",
+                agent_name=agent_name,
+                model="gpt-4o-mini",
+                prompt_tokens=int(stats.get("total_prompt_tokens", 0)),
+                completion_tokens=int(stats.get("total_completion_tokens", 0)),
+                cost_usd=float(stats.get("total_cost_usd", 0)),
+                latency_ms=float(stats.get("avg_latency_ms", 0)),
+                cache_hit=cost_info.get("cache_hit", False),
+            )
+        )
+
 
 def render() -> None:
     _init_state()

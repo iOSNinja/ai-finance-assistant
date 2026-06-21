@@ -66,10 +66,12 @@ def _get_engines():
         # sufficient for our PII types (SSN, email, phone, names) since
         # most detection is regex-based; the NLP model only helps PERSON
         # entity recognition, which the small model handles fine.
-        nlp_engine = NlpEngineProvider(nlp_configuration={
-            "nlp_engine_name": "spacy",
-            "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
-        }).create_engine()
+        nlp_engine = NlpEngineProvider(
+            nlp_configuration={
+                "nlp_engine_name": "spacy",
+                "models": [{"lang_code": "en", "model_name": "en_core_web_sm"}],
+            }
+        ).create_engine()
 
         _analyzer = AnalyzerEngine(
             nlp_engine=nlp_engine,
