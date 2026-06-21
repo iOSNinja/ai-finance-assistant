@@ -1,0 +1,29 @@
+Copyright (c) 2026 Ravi Doddi. All rights reserved.
+
+This repository is published publicly as a portfolio piece for the
+purpose of demonstrating my engineering work to prospective employers.
+You are welcome to:
+
+  - View and read the source code
+  - Learn from the patterns and architectural decisions
+  - Link to or reference this repository in discussions
+
+The code in this repository is NOT licensed for:
+
+  - Redistribution in whole or in part
+  - Use in your own commercial or non-commercial projects
+  - Submission as your own work in any context, including but not
+    limited to: courses, interviews, job applications, hackathons,
+    coding bootcamps, or take-home assessments
+  - Training of machine learning models, including LLMs, without
+    explicit written permission
+
+If you would like to use any patterns, code, or ideas from this
+codebase in your own work, please reach out — I am happy to discuss
+and may grant permission on a case-by-case basis.
+
+Contact: www.linkedin.com/in/ravi-doddi-32061110
+GitHub:  https://github.com/iOSNinja/ai-finance-assistant
+
+This notice must be retained in any copies or substantial portions
+of the software, should any be made under explicit permission.

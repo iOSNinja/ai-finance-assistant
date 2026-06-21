@@ -771,7 +771,11 @@ Selected highlights:
 
 ## 📄 License
 
-Private project — Not licensed for distribution.
+Source-available portfolio project — **not licensed for redistribution or reuse.**
+See [LICENSE](./LICENSE) for full terms.
+
+If you'd like to use any patterns from this work in your own projects,
+please reach out — happy to discuss.
 
 ---
 
