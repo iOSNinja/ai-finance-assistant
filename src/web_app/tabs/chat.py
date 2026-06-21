@@ -11,8 +11,10 @@ from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
 
-# FastAPI backend URL
-API_BASE_URL = "http://localhost:8000"
+# FastAPI backend URL — env var first (cloud), localhost fallback (local dev)
+import os
+
+API_BASE_URL = os.environ.get("FINNIE_API_URL", "http://localhost:8000")
 
 # Per-session rate limit — UX courtesy for trusted demo users.
 # (Real cost protection is server-side in the FastAPI cost circuit breaker.)

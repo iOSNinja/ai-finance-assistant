@@ -3,6 +3,7 @@
 import streamlit as st
 
 from src.rag.retriever import kb_search
+from src.web_app.components.cloud_mode import render_cloud_only_notice
 
 # Per-session rate limit — UX courtesy for trusted demo users.
 LIBRARY_QUERY_LIMIT = 2
@@ -40,6 +41,9 @@ def _render_results(results: list[dict], query: str) -> None:
 
 
 def render() -> None:
+    if render_cloud_only_notice("Library"):
+        return
+
     st.markdown(
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">'
         '<h2 style="margin:0;">📚 Knowledge Library</h2>'

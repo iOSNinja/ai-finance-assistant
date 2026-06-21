@@ -4,6 +4,7 @@ import pandas as pd
 import streamlit as st
 
 from src.agents.portfolio.tool import analyze_portfolio
+from src.web_app.components.cloud_mode import render_cloud_only_notice
 
 VALID_CLASSES = ["stocks", "bonds", "cash", "other"]
 
@@ -104,6 +105,9 @@ def _render_results(result: dict) -> None:
 
 
 def render() -> None:
+    if render_cloud_only_notice("Portfolio"):
+        return
+
     st.markdown(
         '<div style="display:flex;align-items:center;gap:12px;margin-bottom:8px;">'
         '<h2 style="margin:0;">📊 Portfolio</h2>'
