@@ -12,7 +12,10 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 
+from src.api.rate_limit import limiter
 from src.api.routes import chat, health
 from src.utils.logger import setup_logger
 
@@ -45,6 +48,10 @@ app = FastAPI(
     description="Multi-agent personal finance education assistant",
     lifespan=lifespan,
 )
+
+# Attach limiter to the app + register the 429 handler.
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Wiring each route router into the main app.
 app.include_router(health.router)
