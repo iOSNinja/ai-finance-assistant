@@ -1,15 +1,18 @@
 """Chat tab: main multi-agent conversational interface."""
 
+import httpx
 import streamlit as st
 
 from src.core.config import embeddings
 from src.main import FinnieAIFinanceAssistant
-from src.observability.context import cost_tracker_for_request
 from src.observability.cost_tracker import CostTracker
 from src.observability.semantic_cache import SemanticCache
 from src.utils.logger import setup_logger
 
 logger = setup_logger(__name__)
+
+# FastAPI backend URL
+API_BASE_URL = "http://localhost:8000"
 
 USER_AVATAR = "🧑"
 FINNIE_AVATAR = "🦊"
@@ -72,67 +75,72 @@ def _handle_query(user_query: str) -> None:
     with st.chat_message("user", avatar=USER_AVATAR):
         st.markdown(user_query)
 
-    assistant = _get_assistant()
-    tracker = _ensure_session_tracker()
-    cache = _ensure_session_cache()
+    tracker = _ensure_session_tracker()  # for sidebar cumulative display
 
     with st.chat_message("assistant", avatar=FINNIE_AVATAR):
         with st.spinner("Researching..."):
             try:
-                # CACHE-ASIDE PATTERN
-                # 1. Try the cache first. Graceful degradation: if the cache
-                #    call itself fails, treat it as a miss and run the graph.
-                try:
-                    cached_response = cache.get(user_query)
-                except Exception as cache_err:
-                    logger.warning(
-                        "Cache get failed — falling back to graph",
-                        extra={
-                            "error_type": type(cache_err).__name__,
-                            "error": str(cache_err)[:200],
-                        },
+                # Call FastAPI backend via HTTP
+                with httpx.Client(timeout=60.0) as client:
+                    resp = client.post(
+                        f"{API_BASE_URL}/chat",
+                        json={"query": user_query},
                     )
-                    cached_response = None
+                    resp.raise_for_status()
+                    payload = resp.json()
 
-                if cached_response is not None:
-                    # 2. Cache HIT — return immediately. Zero LLM cost.
-                    response = cached_response
-                    logger.info(
-                        "Cache hit",
-                        extra={
-                            "query_preview": user_query[:60],
-                            "hit_rate": cache.hit_rate,
-                        },
-                    )
-                else:
-                    # 3. Cache MISS — snapshot cost, run graph, then store.
-                    cost_before = tracker.total_cost_usd
-                    with cost_tracker_for_request(tracker=tracker):
-                        response = assistant.ask(user_query, surface="streamlit")
-                    query_cost = tracker.total_cost_usd - cost_before
+                response = payload["response"]
+                cost_info = payload.get("cost", {})
 
-                    # 4. Write-through: store result + its cost (for $ saved math).
-                    try:
-                        cache.put(user_query, response, cost_to_compute_usd=query_cost)
-                    except Exception as cache_err:
-                        # Cache put failure is also non-fatal — just log it.
-                        logger.warning(
-                            "Cache put failed — response delivered anyway",
-                            extra={
-                                "error_type": type(cache_err).__name__,
-                                "error": str(cache_err)[:200],
-                            },
-                        )
-            except Exception as e:
-                logger.exception("Graph invocation failed in chat tab")
-                response = (
-                    "Sorry — something went wrong while answering. "
-                    "Please try again or rephrase your question.\n\n"
-                    f"_({type(e).__name__})_"
+                # Update sidebar tracker with the per-request cost
+                _accumulate_cost_into_session_tracker(
+                    tracker, cost_info, payload.get("per_agent", {})
                 )
+
+            except httpx.HTTPStatusError as e:
+                logger.exception("FastAPI returned an error")
+                response = (
+                    "The backend returned an error. Please try again.\n\n"
+                    f"_({e.response.status_code})_"
+                )
+            except httpx.RequestError:
+                logger.exception("Couldn't reach FastAPI backend")
+                response = (
+                    "Couldn't reach the backend. Is it running?\n\n"
+                    "Start with: `uv run uvicorn src.api.main:app --reload --port 8000`"
+                )
+            except Exception as e:
+                logger.exception("Unexpected error calling FastAPI")
+                response = f"Unexpected error: {type(e).__name__}"
+
         st.markdown(response)
 
     st.session_state.chat_messages.append({"role": "assistant", "content": response})
+
+
+def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: dict) -> None:
+    """Bridge: take the FastAPI response's cost info and merge it into the
+    Streamlit session tracker so the sidebar shows cumulative session cost."""
+    from src.observability.cost_tracker import CostRecord
+
+    # Synthesize one combined record from the per-agent breakdown
+    for agent_name, stats in per_agent.items():
+        if stats.get("call_count", 0) == 0:
+            continue
+        # Push one CostRecord per agent into the session tracker.
+        # Note: trace_id is synthetic here since we don't have one from API.
+        tracker.record(
+            CostRecord(
+                trace_id=f"api-{agent_name[:6]}",
+                agent_name=agent_name,
+                model="gpt-4o-mini",
+                prompt_tokens=int(stats.get("total_prompt_tokens", 0)),
+                completion_tokens=int(stats.get("total_completion_tokens", 0)),
+                cost_usd=float(stats.get("total_cost_usd", 0)),
+                latency_ms=float(stats.get("avg_latency_ms", 0)),
+                cache_hit=cost_info.get("cache_hit", False),
+            )
+        )
 
 
 def render() -> None:

@@ -33,6 +33,9 @@ dependencies = [
     "mcp[cli]>=1.27.2",
     "uvicorn>=0.48.0",
     "starlette>=1.1.0",
+    "fastapi>=0.137.1",
+    "httpx>=0.28.1",
+    "pydantic-settings>=2.14.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -77,6 +80,10 @@ ignore = [
 "src/main.py"             = ["E402"]
 "src/mcp_server/run_stdio.py" = ["E402"]
 "src/core/config.py"      = ["E402"]
+# B008 (function call in default arg) flags Depends(...) in FastAPI routes.
+# But Depends() in argument defaults is THE canonical FastAPI pattern —
+# refactoring would be worse. Ignore B008 for route files only.
+"src/api/routes/**"       = ["B008"]
 
 [tool.ruff.format]
 # configuration block for code rewriting stylization.
