@@ -147,15 +147,19 @@ def _handle_query(user_query: str) -> None:
 
 def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: dict) -> None:
     """Bridge: take the FastAPI response's cost info and merge it into the
-    Streamlit session tracker so the sidebar shows cumulative session cost."""
+    Streamlit session tracker so the sidebar shows cumulative session cost.
+
+    Two strategies, tried in order:
+      1. Rich per-agent records (if API returned per_agent breakdown)
+      2. Aggregate fallback (if per_agent is empty but cost block has totals)
+    """
     from src.observability.cost_tracker import CostRecord
 
-    # Synthesize one combined record from the per-agent breakdown
+    # Strategy 1 — push one record per agent
+    pushed_any = False
     for agent_name, stats in per_agent.items():
         if stats.get("call_count", 0) == 0:
             continue
-        # Push one CostRecord per agent into the session tracker.
-        # Note: trace_id is synthetic here since we don't have one from API.
         tracker.record(
             CostRecord(
                 trace_id=f"api-{agent_name[:6]}",
@@ -168,14 +172,49 @@ def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: d
                 cache_hit=cost_info.get("cache_hit", False),
             )
         )
+        pushed_any = True
+
+    # Strategy 2 — fallback: if no per-agent data but aggregate has cost,
+    # push one synthetic 'aggregate' record so sidebar shows SOMETHING
+    if not pushed_any and cost_info.get("total_calls", 0) > 0:
+        tracker.record(
+            CostRecord(
+                trace_id="api-aggregate",
+                agent_name="aggregate",
+                model="gpt-4o-mini",
+                prompt_tokens=0,
+                completion_tokens=0,
+                cost_usd=float(cost_info.get("total_cost_usd", 0)),
+                latency_ms=0.0,
+                cache_hit=cost_info.get("cache_hit", False),
+            )
+        )
 
 
 def render() -> None:
     _init_state()
 
+    # Persistent over-limit banner
+    # Show on every render once the user has hit the cap (so the message
+    # doesn't vanish on the next rerender like it would from inside
+    # _handle_query alone).
+    used = st.session_state.get("chat_queries_used", 0)
+    over_limit = used >= CHAT_QUERY_LIMIT
+
     _render_history()
 
-    if not st.session_state.chat_messages:
+    if over_limit:
+        st.warning(
+            f"⛔ You've used your **{CHAT_QUERY_LIMIT} free chat queries** for this session. "
+            f"Want to try more? Please contact "
+            f"[Ravi on LinkedIn](https://www.linkedin.com/in/ravi-doddi-32061110/) "
+            f"for extended access. You can also clone the repo and run Finnie locally — "
+            f"see [GitHub](https://github.com/iOSNinja/ai-finance-assistant).",
+            icon="🦊",
+        )
+
+    # Empty state: show prompt suggestions (only when chat is empty AND under limit)
+    if not st.session_state.chat_messages and not over_limit:
         st.markdown(
             '<div class="section-eyebrow">Try a starter question</div>',
             unsafe_allow_html=True,
@@ -187,6 +226,12 @@ def render() -> None:
                     _handle_query(prompt)
                     st.rerun()
 
-    if user_query := st.chat_input("Ask Finnie anything about finance..."):
+    # Chat input — disabled when over limit (greyed out + no submit)
+    placeholder = (
+        "Demo limit reached — see banner above"
+        if over_limit
+        else "Ask Finnie anything about finance..."
+    )
+    if user_query := st.chat_input(placeholder, disabled=over_limit):
         _handle_query(user_query)
         st.rerun()
