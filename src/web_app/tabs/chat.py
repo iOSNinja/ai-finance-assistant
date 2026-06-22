@@ -174,9 +174,12 @@ def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: d
         )
         pushed_any = True
 
-    # Strategy 2 — fallback: if no per-agent data but aggregate has cost,
-    # push one synthetic 'aggregate' record so sidebar shows SOMETHING
-    if not pushed_any and cost_info.get("total_calls", 0) > 0:
+    # Strategy 2 — fallback: ALWAYS push one synthetic 'aggregate' record
+    # if per-agent didn't fire. Even with cost=0 (cache hit OR server-side
+    # callback misfire), pushing a record guarantees tracker.total_calls > 0
+    # so the sidebar consistently shows metrics after the first query
+    # instead of intermittently reverting to "Send a chat query".
+    if not pushed_any:
         tracker.record(
             CostRecord(
                 trace_id="api-aggregate",
