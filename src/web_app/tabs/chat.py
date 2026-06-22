@@ -147,19 +147,15 @@ def _handle_query(user_query: str) -> None:
 
 def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: dict) -> None:
     """Bridge: take the FastAPI response's cost info and merge it into the
-    Streamlit session tracker so the sidebar shows cumulative session cost.
-
-    Two strategies, tried in order:
-      1. Rich per-agent records (if API returned per_agent breakdown)
-      2. Aggregate fallback (if per_agent is empty but cost block has totals)
-    """
+    Streamlit session tracker so the sidebar shows cumulative session cost."""
     from src.observability.cost_tracker import CostRecord
 
-    # Strategy 1 — push one record per agent
-    pushed_any = False
+    # Synthesize one combined record from the per-agent breakdown
     for agent_name, stats in per_agent.items():
         if stats.get("call_count", 0) == 0:
             continue
+        # Push one CostRecord per agent into the session tracker.
+        # Note: trace_id is synthetic here since we don't have one from API.
         tracker.record(
             CostRecord(
                 trace_id=f"api-{agent_name[:6]}",
@@ -169,26 +165,6 @@ def _accumulate_cost_into_session_tracker(tracker, cost_info: dict, per_agent: d
                 completion_tokens=int(stats.get("total_completion_tokens", 0)),
                 cost_usd=float(stats.get("total_cost_usd", 0)),
                 latency_ms=float(stats.get("avg_latency_ms", 0)),
-                cache_hit=cost_info.get("cache_hit", False),
-            )
-        )
-        pushed_any = True
-
-    # Strategy 2 — fallback: ALWAYS push one synthetic 'aggregate' record
-    # if per-agent didn't fire. Even with cost=0 (cache hit OR server-side
-    # callback misfire), pushing a record guarantees tracker.total_calls > 0
-    # so the sidebar consistently shows metrics after the first query
-    # instead of intermittently reverting to "Send a chat query".
-    if not pushed_any:
-        tracker.record(
-            CostRecord(
-                trace_id="api-aggregate",
-                agent_name="aggregate",
-                model="gpt-4o-mini",
-                prompt_tokens=0,
-                completion_tokens=0,
-                cost_usd=float(cost_info.get("total_cost_usd", 0)),
-                latency_ms=0.0,
                 cache_hit=cost_info.get("cache_hit", False),
             )
         )
