@@ -1,7 +1,7 @@
 {
   "cluster": "finnie",
   "serviceName": "finnie-api",
-  "taskDefinition": "finnie-api:2",
+  "taskDefinition": "finnie-api:3",
   "desiredCount": 1,
   "launchType": "FARGATE",
   "platformVersion": "LATEST",
@@ -20,7 +20,7 @@
   },
   "loadBalancers": [
     {
-      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-2:082706806911:targetgroup/finnie-tg/86f4c7d3539cde40",
+      "targetGroupArn": "arn:aws:elasticloadbalancing:us-east-2:082706806911:targetgroup/finnie-tg/2f00e3fb8c0354d6",
       "containerName": "finnie",
       "containerPort": 8000
     }
