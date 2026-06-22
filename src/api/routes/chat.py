@@ -10,6 +10,7 @@ This is the main runtime endpoint. The flow:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from langchain_community.callbacks.manager import get_openai_callback
 
 from src.api.dependencies import get_assistant, get_daily_tracker, get_semantic_cache
 from src.api.models.chat import ChatRequest, ChatResponse, CostInfo
@@ -86,11 +87,21 @@ async def chat(
                 per_agent={},
             )
 
-        # MISS — run the graph
+        # MISS — run the graph. Wrap in BOTH:
+        #   1. cost_tracker_for_request -> for per-agent attribution (when callback tags fire)
+        #   2. get_openai_callback     -> for guaranteed total cost + token counts
+        # The OpenAI callback is bulletproof; the per-agent tracker is best-effort.
         cost_before = tracker.total_cost_usd
-        with cost_tracker_for_request(tracker=tracker):
-            response_text = assistant.ask(user_query, surface="api")
-        query_cost = tracker.total_cost_usd - cost_before
+        with get_openai_callback() as cb:
+            with cost_tracker_for_request(tracker=tracker):
+                response_text = assistant.ask(user_query, surface="api")
+
+        # Use OpenAI callback's reliable totals as the source of truth for cost.
+        # If the per-agent tracker captured anything, we use it for the breakdown;
+        # otherwise the cb totals still ensure cost_info is populated.
+        query_cost = max(tracker.total_cost_usd - cost_before, cb.total_cost)
+        reliable_total_calls = max(tracker.total_calls, cb.successful_requests)
+        reliable_total_cost = max(tracker.total_cost_usd, cb.total_cost)
 
         # Store in cache so a paraphrased query later HITs
         try:
@@ -121,8 +132,8 @@ async def chat(
         return ChatResponse(
             response=response_text,
             cost=CostInfo(
-                total_calls=tracker.total_calls,
-                total_cost_usd=tracker.total_cost_usd,
+                total_calls=reliable_total_calls,
+                total_cost_usd=reliable_total_cost,
                 cache_hit=False,
                 saved_by_cache_usd=0.0,
             ),
