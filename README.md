@@ -4,11 +4,40 @@
 
 > Smart finance, plain English. A six-agent AI assistant for personal finance education — explains concepts, analyzes portfolios, projects savings, looks up live market data, and summarizes financial news. Grounded in curated sources. Never invents facts.
 
-![Status](https://img.shields.io/badge/status-active%20development-emerald)
+![Status](https://img.shields.io/badge/status-live-success)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![LangGraph](https://img.shields.io/badge/LangGraph-multi--agent-violet)
 ![OpenAI](https://img.shields.io/badge/OpenAI-gpt--4o-black)
-![License](https://img.shields.io/badge/license-private-lightgrey)
+![Deploy](https://img.shields.io/badge/AWS-ECS%20Fargate-orange)
+![License](https://img.shields.io/badge/license-source--available-lightgrey)
+
+---
+
+## 🚀 Live Demo
+
+**Finnie is deployed to AWS ECS Fargate behind an Application Load Balancer**, with a thin Streamlit Cloud frontend calling the AWS backend over HTTP. The full production stack is ready to wake on request.
+
+> **To try the live demo, please reach out:**
+> - 📩 [LinkedIn DM](https://www.linkedin.com/in/ravi-doddi-32061110/)
+> - 📧 Email — see my [GitHub profile](https://github.com/iOSNinja) for contact
+>
+> I'll share the URL directly so you can try the chat experience end-to-end. Expect a response within a few hours.
+
+**Why request-based access?** Sharing the URL directly lets me verify each demo session works smoothly for the reviewer and walk them through interesting moments if they'd like. Architecting the system with **cost-controlled exposure** (per-IP rate limiting, daily backend budget cap, session-level UX limits) is itself part of the production engineering story this repo demonstrates.
+
+**Architecture:**
+
+```
+Browser → Streamlit Cloud (thin UI) → HTTPS
+                                       ↓
+                  AWS Application Load Balancer (multi-AZ)
+                                       ↓
+                  ECS Fargate task — FastAPI + 6-agent LangGraph
+                  ↑                            ↓
+              ECR (image)        Secrets Manager + CloudWatch Logs
+```
+
+**For developers — full local setup runs in ~3 minutes** ([Setup](#-setup) below). The local version gives you all 5 tabs (Chat, Portfolio, Markets, Goals, Library), not just chat.
 
 ---
 
@@ -265,6 +294,21 @@ ai-finance-assistant/
 │   ├── core/
 │   │   └── config.py              ← env vars + config.yaml loader, llm/embeddings singletons
 │   │
+│   ├── api/                       ← FastAPI backend (the deployed service)
+│   │   ├── main.py                ← FastAPI app entry, lifespan, slowapi wiring
+│   │   ├── dependencies.py        ← Depends() factories: assistant + cache + daily tracker singletons
+│   │   ├── rate_limit.py          ← slowapi Limiter (extracted to avoid circular imports)
+│   │   ├── models/
+│   │   │   └── chat.py            ← Pydantic ChatRequest/ChatResponse/CostInfo schemas
+│   │   └── routes/
+│   │       ├── chat.py            ← POST /chat — cost circuit breaker + cache + graph invocation
+│   │       └── health.py          ← GET /health — lightweight liveness for ALB
+│   │
+│   ├── mcp_server/                ← Model Context Protocol server (Claude Desktop integration)
+│   │   ├── server.py              ← 9 tools + 2 prompt templates
+│   │   ├── run_stdio.py           ← stdio transport for Claude Desktop
+│   │   └── run_http.py            ← SSE + Streamable HTTP transports
+│   │
 │   ├── rag/
 │   │   ├── sources.py             ← declarative KB source manifest
 │   │   ├── loaders.py             ← WebBaseLoader-based document fetching
@@ -272,16 +316,12 @@ ai-finance-assistant/
 │   │   ├── ingest.py              ← end-to-end ingestion pipeline
 │   │   └── retriever.py           ← generic KB search (used by Knowledge tab UI)
 │   │
-│   ├── utils/
-│   │   └── logger.py              ← centralized logging setup
-│   │
-│   ├── web_app/
-│   │   ├── app.py                 ← Streamlit entry point
-│   │   ├── components/            ← sidebar, custom CSS styles
-│   │   └── tabs/                  ← Chat, Portfolio, Markets, Goals, Library
-│   │
-│   ├── workflow/
-│   │   └── graph.py               ← LangGraph StateGraph wiring (includes input/output guard nodes)
+│   ├── observability/             ← cross-cutting cost + cache instrumentation
+│   │   ├── token_counter.py       ← tiktoken pre-flight estimation + per-model pricing
+│   │   ├── cost_tracker.py        ← immutable CostRecord + mutable CostTracker accumulator
+│   │   ├── cost_callback.py       ← LangChain BaseCallbackHandler; reads agent tags
+│   │   ├── context.py             ← ContextVar for per-request tracker scoping
+│   │   └── semantic_cache.py      ← embedding-similarity cache with calibrated threshold
 │   │
 │   ├── guardrails/                ← input + output safety layer
 │   │   ├── patterns.py            ← regex patterns (injection, advice violation, PII)
@@ -289,6 +329,17 @@ ai-finance-assistant/
 │   │   ├── output_guard.py        ← PII scrub / advice check / disclaimer presence
 │   │   ├── pii.py                 ← Presidio wrapper with DOB-only DATE_TIME filter
 │   │   └── injection_classifier.py ← LLM-based prompt-injection detector
+│   │
+│   ├── workflow/
+│   │   └── graph.py               ← LangGraph StateGraph wiring (includes input/output guard nodes)
+│   │
+│   ├── web_app/
+│   │   ├── app.py                 ← Streamlit entry point (calls FastAPI over httpx)
+│   │   ├── components/            ← sidebar (cost panel), custom CSS, cloud-mode banner
+│   │   └── tabs/                  ← Chat, Portfolio, Markets, Goals, Library
+│   │
+│   ├── utils/
+│   │   └── logger.py              ← centralized logging setup
 │   │
 │   ├── state.py                   ← FinnieState TypedDict + reset_or_add_messages reducer
 │   └── main.py                    ← CLI entry point (FinnieAIFinanceAssistant class)
@@ -311,10 +362,23 @@ ai-finance-assistant/
 │   └── sanity/                    ← imperative spot-checks (KB health, vector store stats)
 ├── scripts/                       ← utility scripts (gitignored)
 │
+├── infra/
+│   └── ecs/
+│       ├── finnie-task-definition.json  ← ECS Fargate task spec (image, CPU/mem, secrets, healthcheck)
+│       └── finnie-service.json          ← ECS service spec (ALB binding, deployment strategy)
+│
+├── .github/
+│   └── workflows/
+│       └── ci.yml                 ← Ruff + pytest on every push, branch-protection gate
+│
+├── Dockerfile                     ← multi-stage build, non-root, ARM64-targeted
+├── .dockerignore                  ← excludes .venv, .git, .env from build context
+│
 ├── config.yaml                    ← non-secret app config (LLM model, cache TTLs, RAG params)
-├── pyproject.toml                 ← uv project + dependencies
+├── pyproject.toml                 ← uv project + dependencies + Ruff + pytest config
 ├── uv.lock                        ← locked dependency versions
 ├── .env.example                   ← template for required env vars
+├── LICENSE                        ← source-available portfolio license
 └── README.md
 ```
 
@@ -615,9 +679,16 @@ Live deployment on AWS using a production-shaped stack — ECR for images, ECS F
 - **ARM64 for ~20% lower Fargate hourly cost.** Built on Apple Silicon Mac; `runtimePlatform.cpuArchitecture: ARM64` in task def avoids `exec format error`.
 - **`startPeriod: 60` on the healthcheck.** Without this, ECS would kill the container while LangGraph + Chroma + spaCy are still loading. Common production bug.
 
-**Cost discipline:**
+**Cost engineering:**
 
-`finnie-sleep` (set service `desired-count: 0`) at end of every work session stops Fargate billing. `finnie-wake` (set back to 1) on next session — task boots in ~60 seconds. ~$0.045/hour while running, $0/hour while sleeping. Budget alarm at $15/month is the safety net.
+- **ARM64 Fargate** selected for ~20% lower compute cost vs X86_64 (Apple Silicon image matches)
+- **Three-layer cost protection** prevents runaway spend even under adversarial load:
+  - Backend daily budget cap via singleton `CostTracker` → HTTP 429 when exhausted
+  - Per-IP rate limit via slowapi (5/min + 30/day) → bot defense
+  - Streamlit session-level UX limit (3 chat queries/session) → friendly cap with contact-me CTA
+- **CloudWatch billing alarm** at \$15/month as the safety net
+
+Together these let the system be exposed publicly without uncapped financial exposure to abuse — the kind of disciplined cost architecture that matters in real production deployments.
 
 **Coming next:**
 
@@ -733,21 +804,26 @@ In a new conversation, the 🔌 menu will show `finnie · 9 tools, 2 prompts`. T
 | ✅ | FastAPI backend carve-out — decoupled from Streamlit; OpenAPI auto-docs |
 | ✅ | Docker containerization — multi-stage build, non-root, ~360 MB image |
 | ✅ | AWS cloud deployment — live on ECS Fargate behind ALB (us-east-2) |
-| 🚧 | Rate-limited demo UI on Streamlit Cloud (free tier, HTTPS, calls AWS backend) |
-| 🚧 | Cost circuit breaker + CloudWatch billing alarms for safe public-ish demo |
-| 🚧 | Demo video — public link with full agent walkthrough |
+| ✅ | Streamlit Cloud thin-client UI (chat-only) calling AWS FastAPI backend over HTTPS |
+| ✅ | Three-layer cost protection — backend daily budget cap (HTTP 429 on exhaust) + per-IP rate limit (slowapi) + Streamlit session UX caps |
+| ✅ | Zero-downtime rolling deploys with circuit-breaker auto-rollback (ECS `minimumHealthyPercent: 100`, `maximumPercent: 200`) |
+| ✅ | Source-available LICENSE clarifying portfolio-use terms (opt-out of LLM training scraping) |
+| 🚧 | Demo video — narrated walkthrough of the full multi-agent + cost-tracking experience |
 
 ## Future Enhancements
 
 | Status | Item |
 |---|---|
-| 📅 | RDS Postgres + Google OAuth — only when graduating to real users with saved state |
-| 📅 | Custom domain (finnie.\<yourdomain\>) + ACM SSL — only when listing on resume / business cards |
-| 📅 | Multi-region failover — only after you have real production traffic |
-| 📅 | Hybrid sparse + dense search (BM25 + dense) for better retrieval |
-| 📅 | Per-user portfolio persistence (currently per-session only) |
-| 📅 | iOS app — native client over a FastAPI backend |
-| 📅 | Voice mode — STT/TTS layer for hands-free interaction |
+| 📅 | **Full thin-client refactor** — route Library / Portfolio / Goals / Markets tabs through dedicated FastAPI endpoints so the UI tier only needs `streamlit + httpx` (no LangChain/Chroma/spaCy). Smaller cloud container, fewer secrets to manage, faster cold starts. |
+| 📅 | **RDS Postgres + Google OAuth** — graduate from per-session state to authenticated multi-user persistence with conversation history, saved portfolios, goal tracking |
+| 📅 | **Custom domain + ACM SSL** — `finnie.<domain>` with HTTPS via Route 53 + AWS Certificate Manager |
+| 📅 | **CloudWatch metric alarms** — 5xx rate, P95 latency, daily-spend percentile alerts on top of the existing billing alarm |
+| 📅 | **Multi-AZ active-active** — Fargate task per AZ behind the ALB; survives AZ outages |
+| 📅 | **Hybrid sparse + dense retrieval** — BM25 + dense + cross-encoder reranker to fix the "lexical capture" failure modes the eval framework surfaced |
+| 📅 | **Per-agent cost-callback hardening** — fix the rare ContextVar misfire on cold-start so the first 1-2 queries always show full per-agent attribution (currently lands aggregate-only on the first call) |
+| 📅 | **Multi-modal input** — image-aware RAG (statements, charts, receipts) using CLIP-style embeddings |
+| 📅 | **Voice mode** — STT/TTS layer for hands-free interaction; pair with on-device Whisper for offline |
+| 📅 | **iOS native client** — SwiftUI app consuming the same FastAPI backend; on-device summarization via Apple Intelligence |
 
 ---
 
